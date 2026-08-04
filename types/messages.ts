@@ -3,6 +3,7 @@ import type {
   AnnotationChanges,
   CreateAnnotationInput,
   PointAnnotation,
+  PointPosition,
 } from './annotation';
 import type { StorageSettings } from './storage';
 
@@ -17,6 +18,7 @@ export const BACKGROUND_MESSAGE_TYPES = {
   getPagePointAnnotations: 'background/get-page-point-annotations',
   createAnnotation: 'background/create-annotation',
   updateAnnotation: 'background/update-annotation',
+  movePointAnnotation: 'background/move-point-annotation',
   deleteAnnotation: 'background/delete-annotation',
   getSettings: 'background/get-settings',
   updateSettings: 'background/update-settings',
@@ -65,6 +67,11 @@ export interface UpdateAnnotationMessage {
   payload: { id: string; changes: AnnotationChanges };
 }
 
+export interface MovePointAnnotationMessage {
+  type: typeof BACKGROUND_MESSAGE_TYPES.movePointAnnotation;
+  payload: { id: string; position: PointPosition };
+}
+
 export interface DeleteAnnotationMessage {
   type: typeof BACKGROUND_MESSAGE_TYPES.deleteAnnotation;
   payload: { id: string };
@@ -87,6 +94,7 @@ export type BackgroundMessage =
   | GetPagePointAnnotationsMessage
   | CreateAnnotationMessage
   | UpdateAnnotationMessage
+  | MovePointAnnotationMessage
   | DeleteAnnotationMessage
   | GetSettingsMessage
   | UpdateSettingsMessage;
@@ -154,6 +162,7 @@ export interface PointAnnotationGateway {
   getByPage(url: string): Promise<PointAnnotation[]>;
   create(input: CreateAnnotationInput): Promise<Annotation>;
   update(id: string, changes: AnnotationChanges): Promise<Annotation>;
+  move(id: string, position: PointPosition): Promise<PointAnnotation>;
   delete(id: string): Promise<boolean>;
   getSettings(): Promise<StorageSettings>;
   updateSettings(changes: Partial<StorageSettings>): Promise<StorageSettings>;

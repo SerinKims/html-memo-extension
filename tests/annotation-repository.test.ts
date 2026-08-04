@@ -119,6 +119,10 @@ describe('AnnotationRepository', () => {
 
     const resolved = unwrap(await repository.setStatus(created.id, 'resolved'));
     expect(resolved.status).toBe('resolved');
+    const moved = unwrap(
+      await repository.updatePointPosition(created.id, { xRatio: 0.75, yRatio: 0.6 }),
+    );
+    expect(moved.position).toEqual({ xRatio: 0.75, yRatio: 0.6 });
     expect(unwrap(await repository.delete(created.id))).toBe(true);
     expect(unwrap(await repository.getById(created.id))).toBeNull();
   });

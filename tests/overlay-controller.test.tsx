@@ -11,6 +11,7 @@ function createPointGateway(
     getByPage: vi.fn().mockResolvedValue([]),
     create: vi.fn(),
     update: vi.fn(),
+    move: vi.fn(),
     delete: vi.fn().mockResolvedValue(true),
     getSettings: vi.fn().mockResolvedValue({ defaultAuthor: '', defaultColor: 'yellow' }),
     updateSettings: vi.fn().mockResolvedValue({ defaultAuthor: '', defaultColor: 'yellow' }),

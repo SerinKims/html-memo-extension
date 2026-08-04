@@ -3,6 +3,8 @@ import type {
   AnnotationChanges,
   AnnotationStatus,
   CreateAnnotationInput,
+  PointAnnotation,
+  PointPosition,
 } from '../types/annotation';
 import {
   STORAGE_QUOTA_BYTES,
@@ -225,6 +227,36 @@ export class AnnotationRepository {
 
   public setStatus(id: string, status: AnnotationStatus): Promise<RepositoryResult<Annotation>> {
     return this.update(id, { status });
+  }
+
+  public async updatePointPosition(
+    id: string,
+    position: PointPosition,
+  ): Promise<RepositoryResult<PointAnnotation>> {
+    return this.mutate(async (loaded) => {
+      const index = loaded.data.annotations.findIndex((annotation) => annotation.id === id);
+      const current = loaded.data.annotations[index];
+      if (current === undefined) {
+        return failure({ code: 'not_found', message: '이동할 메모를 찾지 못했습니다.' });
+      }
+      if (current.type !== 'point') {
+        return failure(invalidInput('위치 메모만 드래그해서 이동할 수 있습니다.'));
+      }
+
+      const updated: PointAnnotation = {
+        ...current,
+        position: clone(position),
+        updatedAt: this.clock().toISOString(),
+      };
+      if (!isAnnotation(updated)) {
+        return failure(invalidInput('이동할 메모의 위치 비율이 올바르지 않습니다.'));
+      }
+
+      loaded.data.annotations[index] = updated;
+      loaded.data.updatedAt = updated.updatedAt;
+      await this.save(loaded);
+      return success(clone(updated));
+    });
   }
 
   public async getSettings(): Promise<RepositoryResult<StorageSettings>> {

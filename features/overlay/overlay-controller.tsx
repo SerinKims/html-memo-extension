@@ -8,10 +8,15 @@ import {
   getAnnotationSettings,
   getPageAnnotationCount,
   getPagePointAnnotations,
+  movePointAnnotation,
   updateAnnotation,
   updateAnnotationSettings,
 } from '../../services/message-service';
-import { measureDocument, restoreViewportPoint } from '../../services/annotation-position-service';
+import {
+  calculatePointPosition,
+  measureDocument,
+  restoreViewportPoint,
+} from '../../services/annotation-position-service';
 import type { PointAnnotation, PointPosition } from '../../types/annotation';
 import type { StorageSettings } from '../../types/storage';
 import type { OverlayState, OverlayTool, PointAnnotationGateway } from '../../types/messages';
@@ -38,6 +43,7 @@ const defaultPointGateway: PointAnnotationGateway = {
   getByPage: getPagePointAnnotations,
   create: createAnnotation,
   update: updateAnnotation,
+  move: movePointAnnotation,
   delete: deleteAnnotation,
   getSettings: getAnnotationSettings,
   updateSettings: updateAnnotationSettings,
@@ -69,6 +75,7 @@ export class OverlayController {
   private pointAnnotations: PointAnnotation[] = [];
   private settings: StorageSettings = { ...initialSettings };
   private editorState: EditorState | null = null;
+  private readonly markerMoveSequences = new Map<string, number>();
   private currentUrl: string;
   private statusMessage = '메모 모드가 활성화되었습니다.';
   private requestSequence = 0;
@@ -119,6 +126,7 @@ export class OverlayController {
     this.annotationCount = null;
     this.pointAnnotations = [];
     this.editorState = null;
+    this.markerMoveSequences.clear();
     this.requestSequence += 1;
     this.pointTool.deactivate();
     this.window.removeEventListener('keydown', this.handleKeyDown, true);
@@ -184,6 +192,7 @@ export class OverlayController {
   private handleNavigation(url: string): void {
     this.selectedTool = null;
     this.editorState = null;
+    this.markerMoveSequences.clear();
     this.syncPointTool();
     this.statusMessage = '페이지 이동을 감지해 메모 상태를 갱신합니다.';
     void this.refreshPageState(url);
@@ -386,6 +395,51 @@ export class OverlayController {
     this.render();
   }
 
+  private async moveMarker(annotationId: string, clientX: number, clientY: number): Promise<void> {
+    const previous = this.pointAnnotations.find((annotation) => annotation.id === annotationId);
+    if (previous === undefined) {
+      return;
+    }
+
+    const sequence = (this.markerMoveSequences.get(annotationId) ?? 0) + 1;
+    this.markerMoveSequences.set(annotationId, sequence);
+    const position = calculatePointPosition(
+      clientX + this.window.scrollX,
+      clientY + this.window.scrollY,
+      measureDocument(this.document),
+    );
+    this.pointAnnotations = this.pointAnnotations.map((annotation) =>
+      annotation.id === annotationId ? { ...annotation, position } : annotation,
+    );
+    this.statusMessage = '메모 위치를 저장하는 중입니다.';
+    this.render();
+
+    try {
+      const moved = await this.pointGateway.move(annotationId, position);
+      if (this.markerMoveSequences.get(annotationId) !== sequence) {
+        return;
+      }
+      this.pointAnnotations = this.pointAnnotations.map((annotation) =>
+        annotation.id === annotationId ? moved : annotation,
+      );
+      this.statusMessage = '메모 위치를 옮겼습니다.';
+    } catch (error) {
+      if (this.markerMoveSequences.get(annotationId) !== sequence) {
+        return;
+      }
+      this.pointAnnotations = this.pointAnnotations.map((annotation) =>
+        annotation.id === annotationId ? previous : annotation,
+      );
+      this.statusMessage =
+        error instanceof Error ? error.message : '메모 위치를 저장하지 못했습니다.';
+    } finally {
+      if (this.markerMoveSequences.get(annotationId) === sequence) {
+        this.markerMoveSequences.delete(annotationId);
+        this.render();
+      }
+    }
+  }
+
   private createMarkerViews(): PointMarkerView[] {
     const size = measureDocument(this.document);
     return this.pointAnnotations.toSorted(byOldestFirst).map((annotation, index) => ({
@@ -465,6 +519,9 @@ export class OverlayController {
         markers={this.createMarkerViews()}
         editor={this.createEditorView()}
         onOpenMarker={(annotationId) => this.openEditor(annotationId)}
+        onMoveMarker={(annotationId, clientX, clientY) =>
+          this.moveMarker(annotationId, clientX, clientY)
+        }
         onSelectTool={(tool) => {
           this.selectedTool = tool;
           this.editorState = null;

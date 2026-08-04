@@ -12,6 +12,7 @@ import type {
   AnnotationChanges,
   CreateAnnotationInput,
   PointAnnotation,
+  PointPosition,
 } from '../types/annotation';
 import type { StorageSettings } from '../types/storage';
 
@@ -100,6 +101,14 @@ export function updateAnnotation(id: string, changes: AnnotationChanges): Promis
     payload: { id, changes },
   });
   return unwrapResponse<Annotation>(response, '메모를 수정하지 못했습니다.');
+}
+
+export function movePointAnnotation(id: string, position: PointPosition): Promise<PointAnnotation> {
+  const response = browser.runtime.sendMessage({
+    type: BACKGROUND_MESSAGE_TYPES.movePointAnnotation,
+    payload: { id, position },
+  });
+  return unwrapResponse<PointAnnotation>(response, '메모 위치를 저장하지 못했습니다.');
 }
 
 export function deleteAnnotation(id: string): Promise<boolean> {

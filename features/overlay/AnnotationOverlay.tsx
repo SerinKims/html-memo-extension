@@ -32,6 +32,7 @@ interface AnnotationOverlayProps {
   markers: PointMarkerView[];
   editor: AnnotationEditorView | null;
   onOpenMarker: (annotationId: string) => void;
+  onMoveMarker: (annotationId: string, clientX: number, clientY: number) => Promise<void>;
   onSelectTool: (tool: OverlayTool) => void;
   onShowList: () => void;
   onSaveHtml: () => void;
@@ -45,6 +46,7 @@ export default function AnnotationOverlay({
   markers,
   editor,
   onOpenMarker,
+  onMoveMarker,
   onSelectTool,
   onShowList,
   onSaveHtml,
@@ -57,6 +59,7 @@ export default function AnnotationOverlay({
           key={marker.annotationId}
           {...marker}
           onOpen={() => onOpenMarker(marker.annotationId)}
+          onMove={(clientX, clientY) => onMoveMarker(marker.annotationId, clientX, clientY)}
         />
       ))}
 

@@ -44,6 +44,12 @@ export default defineBackground(() => {
         case BACKGROUND_MESSAGE_TYPES.updateAnnotation:
           result = await repository.update(message.payload.id, message.payload.changes);
           break;
+        case BACKGROUND_MESSAGE_TYPES.movePointAnnotation:
+          result = await repository.updatePointPosition(
+            message.payload.id,
+            message.payload.position,
+          );
+          break;
         case BACKGROUND_MESSAGE_TYPES.deleteAnnotation:
           result = await repository.delete(message.payload.id);
           break;
