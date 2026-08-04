@@ -6,6 +6,12 @@ import {
   openExtensionDetailsPage,
 } from '../../services/contentScript';
 import { getExtensionMetadata } from '../../services/extensionMetadata';
+import {
+  downloadCurrentPageJsonBackup,
+  loadActivePageSummary,
+  openMemoPanelInActiveTab,
+} from '../../services/popup-service';
+import { getAnnotationSettings, updateAnnotationSettings } from '../../services/message-service';
 import App from './App';
 import './style.css';
 
@@ -24,6 +30,14 @@ createRoot(rootElement).render(
       version={metadata.version}
       onStartMemo={loadContentScriptForActiveTab}
       onOpenFileAccessSettings={openExtensionDetailsPage}
+      onLoadPage={loadActivePageSummary}
+      onOpenMemoPanel={async () => {
+        await loadContentScriptForActiveTab();
+        return openMemoPanelInActiveTab();
+      }}
+      onBackupJson={downloadCurrentPageJsonBackup}
+      onLoadSettings={getAnnotationSettings}
+      onSaveSettings={updateAnnotationSettings}
     />
   </StrictMode>,
 );

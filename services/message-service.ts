@@ -78,6 +78,14 @@ export function getPageAnnotationCount(url: string): Promise<number> {
   return unwrapResponse<number>(response, '현재 페이지의 메모 수를 불러오지 못했습니다.');
 }
 
+export function getPageAnnotations(url: string): Promise<Annotation[]> {
+  const response = browser.runtime.sendMessage({
+    type: BACKGROUND_MESSAGE_TYPES.getPageAnnotations,
+    payload: { url },
+  });
+  return unwrapResponse<Annotation[]>(response, '현재 페이지의 메모를 불러오지 못했습니다.');
+}
+
 export function getPagePointAnnotations(url: string): Promise<PointAnnotation[]> {
   const response = browser.runtime.sendMessage({
     type: BACKGROUND_MESSAGE_TYPES.getPagePointAnnotations,

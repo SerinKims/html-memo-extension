@@ -175,6 +175,57 @@ describe('OverlayController', () => {
     expect(shadowRoot?.querySelector('[data-annotation-id="point-1"]')).toBeNull();
   });
 
+  it('패널에서 해결 상태를 바꾸면 웹페이지 마커에 즉시 반영한다', async () => {
+    const annotation = {
+      id: 'point-sync',
+      pageKey: 'page-1',
+      originalUrl: window.location.href,
+      pageTitle: '문서',
+      type: 'point' as const,
+      content: '동기화할 메모',
+      author: '연구원',
+      color: 'blue' as const,
+      status: 'open' as const,
+      position: { xRatio: 0.25, yRatio: 0.5 },
+      createdAt: '2026-08-04T00:00:00.000Z',
+      updatedAt: '2026-08-04T00:00:00.000Z',
+    };
+    const pointGateway = createPointGateway({
+      getByPage: vi.fn().mockResolvedValue([annotation]),
+      update: vi.fn().mockImplementation(async (_id, changes) => ({
+        ...annotation,
+        ...changes,
+        updatedAt: '2026-08-04T00:01:00.000Z',
+      })),
+    });
+    controller = new OverlayController({
+      styles: '',
+      loadAnnotationCount: vi.fn().mockResolvedValue(1),
+      pointGateway,
+    });
+
+    await act(async () => {
+      controller?.activate();
+      await Promise.resolve();
+    });
+    const shadowRoot = document.getElementById(OVERLAY_HOST_ID)?.shadowRoot;
+    act(() =>
+      shadowRoot?.querySelector<HTMLButtonElement>('button[aria-label="메모 목록"]')?.click(),
+    );
+    const resolveButton = Array.from(shadowRoot?.querySelectorAll('button') ?? []).find(
+      (button) => button.textContent === '해결됨으로 표시',
+    );
+    await act(async () => {
+      resolveButton?.click();
+      await Promise.resolve();
+    });
+
+    expect(pointGateway.update).toHaveBeenCalledWith('point-sync', { status: 'resolved' });
+    expect(shadowRoot?.querySelector('[data-annotation-id="point-sync"]')).toHaveClass(
+      'is-resolved',
+    );
+  });
+
   it('복원 실패 텍스트 메모를 미배치로 표시하고 동적 렌더링 후 다시 배치한다', async () => {
     vi.useFakeTimers();
     const annotation = {

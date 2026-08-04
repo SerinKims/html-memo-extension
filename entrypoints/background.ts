@@ -29,6 +29,13 @@ export default defineBackground(() => {
           }
           return messageSuccess(annotations.data.length);
         }
+        case BACKGROUND_MESSAGE_TYPES.getPageAnnotations: {
+          const annotations = await repository.getByPage(message.payload.url);
+          if (!annotations.ok) {
+            return messageFailure(annotations.error.code, annotations.error.message);
+          }
+          return messageSuccess(annotations.data);
+        }
         case BACKGROUND_MESSAGE_TYPES.getPagePointAnnotations: {
           const annotations = await repository.getByPage(message.payload.url);
           if (!annotations.ok) {

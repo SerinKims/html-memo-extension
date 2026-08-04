@@ -55,6 +55,8 @@ export default defineContentScript({
             return messageSuccess(controller.deactivate());
           case CONTENT_MESSAGE_TYPES.getOverlayState:
             return messageSuccess(controller.getState());
+          case CONTENT_MESSAGE_TYPES.openMemoPanel:
+            return messageSuccess(controller.openPanel());
         }
       },
     );

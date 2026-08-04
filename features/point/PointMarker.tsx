@@ -7,6 +7,7 @@ const DRAG_THRESHOLD_PX = 4;
 interface PointMarkerProps {
   annotationId: string;
   number: number;
+  showNumber?: boolean;
   color: AnnotationColor;
   status: AnnotationStatus;
   left: number;
@@ -18,6 +19,7 @@ interface PointMarkerProps {
 export default function PointMarker({
   annotationId,
   number,
+  showNumber = true,
   color,
   status,
   left,
@@ -87,7 +89,7 @@ export default function PointMarker({
       type="button"
       className={`point-marker point-marker--${color} ${status === 'resolved' ? 'is-resolved' : ''} ${dragOffset.x === 0 && dragOffset.y === 0 ? '' : 'is-dragging'}`}
       style={{ left: left + dragOffset.x, top: top + dragOffset.y }}
-      aria-label={`위치 메모 ${number} 열기`}
+      aria-label={`위치 메모${showNumber ? ` ${number}` : ''} 열기`}
       title="클릭해서 열기 · 드래그해서 이동"
       data-annotation-id={annotationId}
       onPointerDown={handlePointerDown}
@@ -96,7 +98,7 @@ export default function PointMarker({
       onPointerCancel={handlePointerCancel}
       onClick={handleClick}
     >
-      <span>{number}</span>
+      <span>{showNumber ? number : ''}</span>
     </button>
   );
 }

@@ -63,8 +63,320 @@ textarea {
 .memo-toolbar,
 .memo-overlay__notice,
 .text-selection-button,
-.text-memo-list {
+.text-memo-list,
+.annotation-panel {
   pointer-events: auto;
+}
+
+.annotation-panel {
+  position: fixed;
+  top: 24px;
+  right: 194px;
+  display: flex;
+  width: min(390px, calc(100vw - 210px));
+  max-height: calc(100vh - 48px);
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid #cbd5e1;
+  border-radius: 14px;
+  background: rgb(248 250 252 / 98%);
+  box-shadow: 0 18px 50px rgb(15 23 42 / 28%);
+}
+
+.annotation-panel button,
+.annotation-panel input,
+.annotation-panel textarea,
+.annotation-panel select {
+  font: inherit;
+}
+
+.annotation-panel button:focus-visible,
+.annotation-panel input:focus-visible,
+.annotation-panel textarea:focus-visible,
+.annotation-panel select:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 1px;
+}
+
+.annotation-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 15px 10px;
+  background: #fff;
+}
+
+.annotation-panel__header > div {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 15px;
+}
+
+.annotation-panel__header span {
+  color: #64748b;
+  font-size: 11px;
+}
+
+.annotation-panel__header button {
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 7px;
+  background: #f1f5f9;
+  color: #475569;
+  cursor: pointer;
+}
+
+.annotation-panel__stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin: 0;
+  padding: 0 15px 10px;
+  background: #fff;
+}
+
+.annotation-panel__stats div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 9px;
+  border-radius: 8px;
+  background: #f1f5f9;
+}
+
+.annotation-panel__stats dt {
+  color: #64748b;
+  font-size: 10px;
+}
+
+.annotation-panel__stats dd {
+  margin: 0;
+  color: #0f172a;
+  font-weight: 800;
+}
+
+.annotation-panel__visibility {
+  margin: 10px 15px 0;
+  padding: 8px 10px;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.annotation-panel__filters {
+  padding: 10px 15px 4px;
+}
+
+.annotation-panel__filters label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: #475569;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.annotation-panel__filters input,
+.annotation-panel__filters select,
+.annotation-list-item__editor input,
+.annotation-list-item__editor textarea,
+.annotation-list-item__editor select {
+  width: 100%;
+  min-height: 33px;
+  padding: 6px 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 7px;
+  background: #fff;
+  color: #0f172a;
+}
+
+.annotation-panel__filter-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+  margin-top: 7px;
+}
+
+.annotation-panel__result {
+  margin: 4px 15px 7px;
+  color: #64748b;
+  font-size: 10px;
+}
+
+.annotation-list {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 8px;
+  overflow: auto;
+  padding: 0 15px 12px;
+}
+
+.annotation-list__empty {
+  margin: 0 15px 12px;
+  padding: 24px 16px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 10px;
+  background: #fff;
+  color: #475569;
+  text-align: center;
+}
+
+.annotation-list__empty p {
+  margin: 6px 0 0;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+.annotation-list-item {
+  --item-color: #facc15;
+
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  border-left: 5px solid var(--item-color);
+  border-radius: 10px;
+  background: #fff;
+}
+
+.annotation-list-item--red {
+  --item-color: #f87171;
+}
+.annotation-list-item--green {
+  --item-color: #4ade80;
+}
+.annotation-list-item--blue {
+  --item-color: #60a5fa;
+}
+.annotation-list-item--purple {
+  --item-color: #c084fc;
+}
+.annotation-list-item[data-status='resolved'] {
+  opacity: 0.7;
+}
+
+.annotation-list-item__summary {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 5px;
+  padding: 10px;
+  border: 0;
+  background: transparent;
+  color: #0f172a;
+  cursor: pointer;
+  text-align: left;
+}
+
+.annotation-list-item__summary:hover {
+  background: #f8fafc;
+}
+.annotation-list-item__summary strong {
+  max-height: 3em;
+  overflow: hidden;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.annotation-list-item__meta,
+.annotation-list-item__submeta {
+  display: flex;
+  justify-content: space-between;
+  color: #64748b;
+  font-size: 10px;
+}
+
+.annotation-list-item__quote {
+  overflow: hidden;
+  color: #475569;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.annotation-list-item__placed,
+.annotation-list-item__unplaced {
+  color: #15803d;
+  font-size: 9px;
+}
+.annotation-list-item__unplaced {
+  color: #b91c1c;
+  font-weight: 800;
+}
+
+.annotation-list-item__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding: 0 10px 10px;
+}
+
+.annotation-list-item__actions button {
+  min-height: 29px;
+  padding: 5px 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #fff;
+  color: #334155;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.annotation-list-item__actions button.is-primary {
+  border-color: #2563eb;
+  background: #2563eb;
+  color: #fff;
+}
+.annotation-list-item__actions button.is-danger {
+  border-color: #fecaca;
+  color: #b91c1c;
+}
+.annotation-list-item__actions button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.annotation-list-item__editor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 10px 10px;
+}
+
+.annotation-list-item__editor label {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  color: #475569;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.annotation-list-item__editor textarea {
+  resize: vertical;
+}
+.annotation-list-item__editor .annotation-list-item__actions {
+  justify-content: flex-end;
+  padding: 0;
+}
+
+.annotation-panel__status {
+  min-height: 32px;
+  margin: 0;
+  padding: 8px 15px;
+  border-top: 1px solid #e2e8f0;
+  background: #fff;
+  color: #1e40af;
+  font-size: 10px;
+}
+
+.annotation-panel__status.is-error {
+  color: #b91c1c;
 }
 
 .text-selection-button {

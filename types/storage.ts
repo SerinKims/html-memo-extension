@@ -15,6 +15,9 @@ export interface StorageUsage {
 export interface StorageSettings {
   defaultAuthor: string;
   defaultColor: AnnotationColor;
+  htmlFilenamePattern: string;
+  includeResolvedInExport: boolean;
+  showPinNumbers: boolean;
 }
 
 export interface StoredDataV1 {

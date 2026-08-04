@@ -139,10 +139,19 @@ describe('AnnotationRepository', () => {
       unwrap(
         await repository.updateSettings({ defaultAuthor: '마지막 작성자', defaultColor: 'blue' }),
       ),
-    ).toEqual({ defaultAuthor: '마지막 작성자', defaultColor: 'blue' });
+    ).toEqual({
+      defaultAuthor: '마지막 작성자',
+      defaultColor: 'blue',
+      htmlFilenamePattern: 'web-review_{title}_{date}',
+      includeResolvedInExport: true,
+      showPinNumbers: true,
+    });
     expect(unwrap(await repository.getSettings())).toEqual({
       defaultAuthor: '마지막 작성자',
       defaultColor: 'blue',
+      htmlFilenamePattern: 'web-review_{title}_{date}',
+      includeResolvedInExport: true,
+      showPinNumbers: true,
     });
   });
 

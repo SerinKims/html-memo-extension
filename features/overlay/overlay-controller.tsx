@@ -44,7 +44,6 @@ import AnnotationOverlay, {
   type AnnotationEditorView,
   type AreaMarkerView,
   type PointMarkerView,
-  type TextMemoListItemView,
 } from './AnnotationOverlay';
 
 export const OVERLAY_HOST_ID = 'html-memo-extension-overlay-host';
@@ -89,7 +88,13 @@ const defaultAreaGateway: AreaAnnotationGateway = {
   delete: deleteAnnotation,
 };
 
-const initialSettings: StorageSettings = { defaultAuthor: '', defaultColor: 'yellow' };
+const initialSettings: StorageSettings = {
+  defaultAuthor: '',
+  defaultColor: 'yellow',
+  htmlFilenamePattern: 'web-review_{title}_{date}',
+  includeResolvedInExport: true,
+  showPinNumbers: true,
+};
 
 function byOldestFirst(left: Annotation, right: Annotation): number {
   const difference = Date.parse(left.createdAt) - Date.parse(right.createdAt);
@@ -132,7 +137,8 @@ export class OverlayController {
   private areaPreview: ViewportArea | null = null;
   private readonly restoredTextRanges = new Map<string, Range>();
   private pendingTextSelection: TextSelection | null = null;
-  private isTextMemoListOpen = false;
+  private isPanelOpen = false;
+  private annotationsVisible = true;
   private settings: StorageSettings = { ...initialSettings };
   private editorState: EditorState | null = null;
   private readonly markerMoveSequences = new Map<string, number>();
@@ -217,6 +223,16 @@ export class OverlayController {
     return this.getState();
   }
 
+  public openPanel(): OverlayState {
+    if (!this.isActive) {
+      this.activate();
+    }
+    this.isPanelOpen = true;
+    this.statusMessage = '현재 페이지 메모 목록을 열었습니다.';
+    this.render();
+    return this.getState();
+  }
+
   public deactivate(): OverlayState {
     if (!this.isActive) {
       return this.getState();
@@ -231,7 +247,8 @@ export class OverlayController {
     this.areaPreview = null;
     this.restoredTextRanges.clear();
     this.pendingTextSelection = null;
-    this.isTextMemoListOpen = false;
+    this.isPanelOpen = false;
+    this.annotationsVisible = true;
     this.editorState = null;
     this.markerMoveSequences.clear();
     this.requestSequence += 1;
@@ -346,7 +363,8 @@ export class OverlayController {
     this.editorState = null;
     this.markerMoveSequences.clear();
     this.pendingTextSelection = null;
-    this.isTextMemoListOpen = false;
+    this.isPanelOpen = false;
+    this.annotationsVisible = true;
     this.restoredTextRanges.clear();
     this.textHighlight.setHighlights([]);
     this.areaTool.cancelSelection(false);
@@ -522,11 +540,91 @@ export class OverlayController {
       }
     }
     this.textHighlight.setHighlights(
-      this.textAnnotations.flatMap((annotation) => {
-        const range = this.restoredTextRanges.get(annotation.id);
-        return range === undefined ? [] : [{ annotation, range }];
-      }),
+      this.annotationsVisible
+        ? this.textAnnotations.flatMap((annotation) => {
+            const range = this.restoredTextRanges.get(annotation.id);
+            return range === undefined ? [] : [{ annotation, range }];
+          })
+        : [],
     );
+  }
+
+  private getAnnotations(): Annotation[] {
+    return [...this.pointAnnotations, ...this.textAnnotations, ...this.areaAnnotations];
+  }
+
+  private focusAnnotation(annotation: Annotation): void {
+    const size = measureDocument(this.document);
+    if (annotation.type === 'point') {
+      this.window.scrollTo({
+        top: Math.max(0, annotation.position.yRatio * size.height - this.window.innerHeight / 2),
+        behavior: 'smooth',
+      });
+      this.openPointEditor(annotation.id);
+      return;
+    }
+    if (annotation.type === 'area') {
+      this.window.scrollTo({
+        top: Math.max(0, annotation.position.yRatio * size.height - this.window.innerHeight / 3),
+        behavior: 'smooth',
+      });
+      this.openAreaEditor(annotation.id);
+      return;
+    }
+    const range = this.restoredTextRanges.get(annotation.id);
+    const target =
+      range?.commonAncestorContainer instanceof Element
+        ? range.commonAncestorContainer
+        : range?.commonAncestorContainer.parentElement;
+    target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    this.openTextEditor(annotation.id);
+  }
+
+  private async updatePanelAnnotation(
+    annotationId: string,
+    changes: import('../../types/annotation').AnnotationChanges,
+  ): Promise<void> {
+    const isText = this.textAnnotations.some((annotation) => annotation.id === annotationId);
+    const isArea = this.areaAnnotations.some((annotation) => annotation.id === annotationId);
+    const gateway = isText ? this.textGateway : isArea ? this.areaGateway : this.pointGateway;
+    const updated = await gateway.update(annotationId, changes);
+    if (updated.type === 'point') {
+      this.pointAnnotations = this.pointAnnotations.map((item) =>
+        item.id === updated.id ? updated : item,
+      );
+    } else if (updated.type === 'text') {
+      this.textAnnotations = this.textAnnotations.map((item) =>
+        item.id === updated.id ? updated : item,
+      );
+      this.restoreTextAnnotations();
+    } else {
+      this.areaAnnotations = this.areaAnnotations.map((item) =>
+        item.id === updated.id ? updated : item,
+      );
+    }
+    this.statusMessage = '메모 목록과 웹페이지 표시를 갱신했습니다.';
+    this.render();
+  }
+
+  private async deletePanelAnnotation(annotationId: string): Promise<void> {
+    const isText = this.textAnnotations.some((annotation) => annotation.id === annotationId);
+    const isArea = this.areaAnnotations.some((annotation) => annotation.id === annotationId);
+    const gateway = isText ? this.textGateway : isArea ? this.areaGateway : this.pointGateway;
+    const deleted = await gateway.delete(annotationId);
+    if (!deleted) {
+      throw new Error('삭제할 메모를 찾지 못했습니다.');
+    }
+    this.pointAnnotations = this.pointAnnotations.filter((item) => item.id !== annotationId);
+    this.textAnnotations = this.textAnnotations.filter((item) => item.id !== annotationId);
+    this.areaAnnotations = this.areaAnnotations.filter((item) => item.id !== annotationId);
+    this.restoredTextRanges.delete(annotationId);
+    this.textHighlight.remove(annotationId);
+    this.annotationCount = Math.max(0, (this.annotationCount ?? 1) - 1);
+    if (this.editorState?.mode === 'edit' && this.editorState.annotationId === annotationId) {
+      this.editorState = null;
+    }
+    this.statusMessage = '메모를 삭제하고 웹페이지 표시를 갱신했습니다.';
+    this.render();
   }
 
   private openPointEditor(annotationId: string): void {
@@ -662,7 +760,11 @@ export class OverlayController {
       }
     }
 
-    this.settings = { defaultAuthor: value.author, defaultColor: value.color };
+    this.settings = {
+      ...this.settings,
+      defaultAuthor: value.author,
+      defaultColor: value.color,
+    };
     let settingsFailed = false;
     try {
       this.settings = await this.pointGateway.updateSettings(this.settings);
@@ -773,10 +875,15 @@ export class OverlayController {
   }
 
   private createMarkerViews(): PointMarkerView[] {
+    if (!this.annotationsVisible) {
+      return [];
+    }
     const size = measureDocument(this.document);
-    return this.pointAnnotations.toSorted(byOldestFirst).map((annotation, index) => ({
+    const ordered = this.getAnnotations().toSorted(byOldestFirst);
+    return this.pointAnnotations.toSorted(byOldestFirst).map((annotation) => ({
       annotationId: annotation.id,
-      number: index + 1,
+      number: ordered.findIndex((item) => item.id === annotation.id) + 1,
+      showNumber: this.settings.showPinNumbers,
       color: annotation.color,
       status: annotation.status,
       ...restoreViewportPoint(annotation.position, size, this.window.scrollX, this.window.scrollY),
@@ -784,10 +891,15 @@ export class OverlayController {
   }
 
   private createAreaMarkerViews(): AreaMarkerView[] {
+    if (!this.annotationsVisible) {
+      return [];
+    }
     const size = measureDocument(this.document);
-    return this.areaAnnotations.toSorted(byOldestFirst).map((annotation, index) => ({
+    const ordered = this.getAnnotations().toSorted(byOldestFirst);
+    return this.areaAnnotations.toSorted(byOldestFirst).map((annotation) => ({
       annotationId: annotation.id,
-      number: index + 1,
+      number: ordered.findIndex((item) => item.id === annotation.id) + 1,
+      showNumber: this.settings.showPinNumbers,
       color: annotation.color,
       status: annotation.status,
       ...restoreViewportArea(annotation.position, size, this.window.scrollX, this.window.scrollY),
@@ -940,18 +1052,6 @@ export class OverlayController {
     };
   }
 
-  private createTextMemoListViews(): TextMemoListItemView[] | null {
-    if (!this.isTextMemoListOpen) {
-      return null;
-    }
-    return this.textAnnotations.map((annotation) => ({
-      annotationId: annotation.id,
-      exactText: annotation.anchor.exactText,
-      content: annotation.content,
-      isPlaced: this.restoredTextRanges.has(annotation.id),
-    }));
-  }
-
   private render(): void {
     if (!this.isActive || this.root === null) {
       return;
@@ -975,10 +1075,34 @@ export class OverlayController {
                 onAdd: () => this.startTextEditor(),
               }
         }
-        textMemoList={this.createTextMemoListViews()}
+        annotations={this.getAnnotations()}
+        isPanelOpen={this.isPanelOpen}
+        annotationsVisible={this.annotationsVisible}
+        showPinNumbers={this.settings.showPinNumbers}
+        unplacedTextIds={
+          new Set(
+            this.textAnnotations
+              .filter((annotation) => !this.restoredTextRanges.has(annotation.id))
+              .map((annotation) => annotation.id),
+          )
+        }
         onOpenMarker={(annotationId) => this.openPointEditor(annotationId)}
         onOpenAreaMarker={(annotationId) => this.openAreaEditor(annotationId)}
-        onOpenTextMemo={(annotationId) => this.openTextEditor(annotationId)}
+        onFocusAnnotation={(annotation) => this.focusAnnotation(annotation)}
+        onUpdateAnnotation={(annotationId, changes) =>
+          this.updatePanelAnnotation(annotationId, changes)
+        }
+        onDeleteAnnotation={(annotationId) => this.deletePanelAnnotation(annotationId)}
+        onToggleVisibility={() => {
+          this.annotationsVisible = !this.annotationsVisible;
+          this.restoreTextAnnotations();
+          this.render();
+        }}
+        onClosePanel={() => {
+          this.isPanelOpen = false;
+          this.statusMessage = '메모 목록을 닫았습니다.';
+          this.render();
+        }}
         onMoveMarker={(annotationId, clientX, clientY) =>
           this.moveMarker(annotationId, clientX, clientY)
         }
@@ -1003,10 +1127,10 @@ export class OverlayController {
           this.render();
         }}
         onShowList={() => {
-          this.isTextMemoListOpen = !this.isTextMemoListOpen;
-          this.statusMessage = this.isTextMemoListOpen
-            ? '텍스트 메모 목록을 열었습니다.'
-            : '텍스트 메모 목록을 닫았습니다.';
+          this.isPanelOpen = !this.isPanelOpen;
+          this.statusMessage = this.isPanelOpen
+            ? '현재 페이지 메모 목록을 열었습니다.'
+            : '메모 목록을 닫았습니다.';
           this.render();
         }}
         onSaveHtml={() => {

@@ -15,6 +15,9 @@ export const CURRENT_SCHEMA_VERSION = 1 as const;
 export const DEFAULT_STORAGE_SETTINGS: StorageSettings = {
   defaultAuthor: '',
   defaultColor: 'yellow',
+  htmlFilenamePattern: 'web-review_{title}_{date}',
+  includeResolvedInExport: true,
+  showPinNumbers: true,
 };
 
 export function createEmptyStoredData(now: string): StoredDataV1 {
@@ -176,6 +179,18 @@ export function sanitizeSettings(value: unknown): StorageSettings {
   return {
     defaultAuthor: typeof value.defaultAuthor === 'string' ? value.defaultAuthor : '',
     defaultColor: isAnnotationColor(value.defaultColor) ? value.defaultColor : 'yellow',
+    htmlFilenamePattern:
+      typeof value.htmlFilenamePattern === 'string' && value.htmlFilenamePattern.trim().length > 0
+        ? value.htmlFilenamePattern
+        : DEFAULT_STORAGE_SETTINGS.htmlFilenamePattern,
+    includeResolvedInExport:
+      typeof value.includeResolvedInExport === 'boolean'
+        ? value.includeResolvedInExport
+        : DEFAULT_STORAGE_SETTINGS.includeResolvedInExport,
+    showPinNumbers:
+      typeof value.showPinNumbers === 'boolean'
+        ? value.showPinNumbers
+        : DEFAULT_STORAGE_SETTINGS.showPinNumbers,
   };
 }
 

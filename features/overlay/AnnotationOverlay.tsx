@@ -5,13 +5,16 @@ import AreaMarker from '../area/AreaMarker';
 import AreaSelectionOverlay from '../area/AreaSelectionOverlay';
 import type { ViewportArea } from '../../services/area-position-service';
 import type { AnnotationColor, AnnotationStatus } from '../../types/annotation';
+import type { Annotation, AnnotationChanges } from '../../types/annotation';
 import type { OverlayTool } from '../../types/messages';
 import Toolbar from './Toolbar';
 import TextSelectionButton from '../text/TextSelectionButton';
+import AnnotationPanel from '../list/AnnotationPanel';
 
 export interface PointMarkerView {
   annotationId: string;
   number: number;
+  showNumber: boolean;
   color: AnnotationColor;
   status: AnnotationStatus;
   left: number;
@@ -21,6 +24,7 @@ export interface PointMarkerView {
 export interface AreaMarkerView extends ViewportArea {
   annotationId: string;
   number: number;
+  showNumber: boolean;
   color: AnnotationColor;
   status: AnnotationStatus;
 }
@@ -43,13 +47,6 @@ export interface TextSelectionButtonView {
   onAdd: () => void;
 }
 
-export interface TextMemoListItemView {
-  annotationId: string;
-  exactText: string;
-  content: string;
-  isPlaced: boolean;
-}
-
 interface AnnotationOverlayProps {
   annotationCount: number | null;
   selectedTool: OverlayTool | null;
@@ -59,11 +56,19 @@ interface AnnotationOverlayProps {
   areaPreview: ViewportArea | null;
   editor: AnnotationEditorView | null;
   textSelection: TextSelectionButtonView | null;
-  textMemoList: TextMemoListItemView[] | null;
+  annotations: Annotation[];
+  isPanelOpen: boolean;
+  annotationsVisible: boolean;
+  showPinNumbers: boolean;
+  unplacedTextIds: ReadonlySet<string>;
   onOpenMarker: (annotationId: string) => void;
   onOpenAreaMarker: (annotationId: string) => void;
   onMoveMarker: (annotationId: string, clientX: number, clientY: number) => Promise<void>;
-  onOpenTextMemo: (annotationId: string) => void;
+  onFocusAnnotation: (annotation: Annotation) => void;
+  onUpdateAnnotation: (id: string, changes: AnnotationChanges) => Promise<void>;
+  onDeleteAnnotation: (id: string) => Promise<void>;
+  onToggleVisibility: () => void;
+  onClosePanel: () => void;
   onSelectTool: (tool: OverlayTool) => void;
   onShowList: () => void;
   onSaveHtml: () => void;
@@ -79,11 +84,19 @@ export default function AnnotationOverlay({
   areaPreview,
   editor,
   textSelection,
-  textMemoList,
+  annotations,
+  isPanelOpen,
+  annotationsVisible,
+  showPinNumbers,
+  unplacedTextIds,
   onOpenMarker,
   onOpenAreaMarker,
   onMoveMarker,
-  onOpenTextMemo,
+  onFocusAnnotation,
+  onUpdateAnnotation,
+  onDeleteAnnotation,
+  onToggleVisibility,
+  onClosePanel,
   onSelectTool,
   onShowList,
   onSaveHtml,
@@ -112,31 +125,19 @@ export default function AnnotationOverlay({
       {editor === null ? null : <AnnotationPopover {...editor} />}
       {textSelection === null ? null : <TextSelectionButton {...textSelection} />}
 
-      {textMemoList === null ? null : (
-        <section className="text-memo-list" aria-label="텍스트 메모 목록">
-          <header>
-            <strong>텍스트 메모</strong>
-            <span>{textMemoList.length}개</span>
-          </header>
-          {textMemoList.length === 0 ? (
-            <p>현재 페이지에 텍스트 메모가 없습니다.</p>
-          ) : (
-            <ul>
-              {textMemoList.map((item) => (
-                <li key={item.annotationId}>
-                  <button type="button" onClick={() => onOpenTextMemo(item.annotationId)}>
-                    <span className="text-memo-list__quote">“{item.exactText}”</span>
-                    <span>{item.content}</span>
-                    <em className={item.isPlaced ? 'is-placed' : 'is-unplaced'}>
-                      {item.isPlaced ? '배치됨' : '미배치 · 원문 위치를 찾지 못함'}
-                    </em>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-      )}
+      {isPanelOpen ? (
+        <AnnotationPanel
+          annotations={annotations}
+          annotationsVisible={annotationsVisible}
+          showPinNumbers={showPinNumbers}
+          unplacedTextIds={unplacedTextIds}
+          onClose={onClosePanel}
+          onToggleVisibility={onToggleVisibility}
+          onFocus={onFocusAnnotation}
+          onUpdate={onUpdateAnnotation}
+          onDelete={onDeleteAnnotation}
+        />
+      ) : null}
 
       <section className="memo-status-card" aria-label="메모 모드 상태">
         <div className="memo-status-card__mode">

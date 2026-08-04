@@ -12,10 +12,12 @@ export const CONTENT_MESSAGE_TYPES = {
   activateMemoMode: 'content/activate-memo-mode',
   deactivateMemoMode: 'content/deactivate-memo-mode',
   getOverlayState: 'content/get-overlay-state',
+  openMemoPanel: 'content/open-memo-panel',
 } as const;
 
 export const BACKGROUND_MESSAGE_TYPES = {
   getPageAnnotationCount: 'background/get-page-annotation-count',
+  getPageAnnotations: 'background/get-page-annotations',
   getPagePointAnnotations: 'background/get-page-point-annotations',
   getPageTextAnnotations: 'background/get-page-text-annotations',
   getPageAreaAnnotations: 'background/get-page-area-annotations',
@@ -48,11 +50,20 @@ export interface GetOverlayStateMessage {
   type: typeof CONTENT_MESSAGE_TYPES.getOverlayState;
 }
 
+export interface OpenMemoPanelMessage {
+  type: typeof CONTENT_MESSAGE_TYPES.openMemoPanel;
+}
+
 export interface GetPageAnnotationCountMessage {
   type: typeof BACKGROUND_MESSAGE_TYPES.getPageAnnotationCount;
   payload: {
     url: string;
   };
+}
+
+export interface GetPageAnnotationsMessage {
+  type: typeof BACKGROUND_MESSAGE_TYPES.getPageAnnotations;
+  payload: { url: string };
 }
 
 export interface GetPagePointAnnotationsMessage {
@@ -100,10 +111,14 @@ export interface UpdateSettingsMessage {
 }
 
 export type ContentMessage =
-  ActivateMemoModeMessage | DeactivateMemoModeMessage | GetOverlayStateMessage;
+  | ActivateMemoModeMessage
+  | DeactivateMemoModeMessage
+  | GetOverlayStateMessage
+  | OpenMemoPanelMessage;
 
 export type BackgroundMessage =
   | GetPageAnnotationCountMessage
+  | GetPageAnnotationsMessage
   | GetPagePointAnnotationsMessage
   | GetPageTextAnnotationsMessage
   | GetPageAreaAnnotationsMessage
