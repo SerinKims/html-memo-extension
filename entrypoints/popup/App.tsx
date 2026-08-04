@@ -7,7 +7,7 @@ interface AppProps extends ExtensionMetadata {
   onStartMemo: () => Promise<void>;
 }
 
-const INITIAL_STATUS = '메모 작성 기능은 아직 구현되지 않았습니다.';
+const INITIAL_STATUS = '현재 웹페이지에서 메모 모드를 시작할 수 있습니다.';
 
 export default function App({ name: extensionName, version, onStartMemo }: AppProps) {
   const [isLoading, setIsLoading] = useState(false);
@@ -18,9 +18,7 @@ export default function App({ name: extensionName, version, onStartMemo }: AppPr
 
     try {
       await onStartMemo();
-      setStatusMessage(
-        '준비 코드가 정상적으로 로드되었습니다. 메모 작성 기능은 아직 구현되지 않았습니다.',
-      );
+      setStatusMessage('현재 페이지에서 메모 모드가 활성화되었습니다.');
     } catch (error: unknown) {
       setStatusMessage(toKoreanErrorMessage(error));
     } finally {
@@ -44,7 +42,7 @@ export default function App({ name: extensionName, version, onStartMemo }: AppPr
         onClick={() => void handleStartMemo()}
         className="w-full rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-wait disabled:opacity-60"
       >
-        {isLoading ? '준비 코드 불러오는 중' : '현재 페이지에서 메모 기능 시작'}
+        {isLoading ? '메모 모드 시작 중' : '메모 시작'}
       </button>
 
       <p id="feature-status" role="status" className="mt-3 text-sm leading-6 text-slate-600">

@@ -6,7 +6,7 @@
 
 ## 현재 상태
 
-Prompt 01의 WXT 기반 초기 구성이 완료되었습니다. Popup, 런타임 Content Script, Background Service Worker 진입점과 TypeScript, Tailwind CSS, 린트, 포맷, 테스트 환경을 포함합니다. 메모 작성과 내보내기 기능은 이후 단계에서 구현합니다.
+Prompt 03의 웹페이지 메모 오버레이 기반까지 완료되었습니다. Popup에서 현재 탭의 메모 모드를 시작할 수 있고, Content Script가 Shadow DOM 안에 도구 모음과 현재 페이지 메모 수를 표시합니다. ESC 종료, 중복 주입 방지, Background 메시지 처리, SPA URL 변경 감지를 포함합니다. 실제 메모 생성과 목록·HTML 내보내기 기능은 이후 단계에서 구현합니다.
 
 ## 개발 시작
 

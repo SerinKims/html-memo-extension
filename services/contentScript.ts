@@ -1,5 +1,7 @@
 import { browser } from 'wxt/browser';
 
+import { activateMemoModeInTab } from './message-service';
+
 const CONTENT_SCRIPT_PATH = '/content-scripts/content.js';
 
 export async function loadContentScriptForActiveTab(): Promise<void> {
@@ -13,4 +15,6 @@ export async function loadContentScriptForActiveTab(): Promise<void> {
     target: { tabId: activeTab.id },
     files: [CONTENT_SCRIPT_PATH],
   });
+
+  await activateMemoModeInTab(activeTab.id);
 }
