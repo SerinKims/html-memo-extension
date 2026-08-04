@@ -10,6 +10,7 @@ import {
 import type {
   Annotation,
   AnnotationChanges,
+  AreaAnnotation,
   CreateAnnotationInput,
   PointAnnotation,
   PointPosition,
@@ -96,6 +97,17 @@ export function getPageTextAnnotations(url: string): Promise<TextAnnotation[]> {
   return unwrapResponse<TextAnnotation[]>(
     response,
     '현재 페이지의 텍스트 메모를 불러오지 못했습니다.',
+  );
+}
+
+export function getPageAreaAnnotations(url: string): Promise<AreaAnnotation[]> {
+  const response = browser.runtime.sendMessage({
+    type: BACKGROUND_MESSAGE_TYPES.getPageAreaAnnotations,
+    payload: { url },
+  });
+  return unwrapResponse<AreaAnnotation[]>(
+    response,
+    '현재 페이지의 영역 메모를 불러오지 못했습니다.',
   );
 }
 

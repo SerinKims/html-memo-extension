@@ -47,6 +47,15 @@ export default defineBackground(() => {
             annotations.data.filter((annotation) => annotation.type === 'text'),
           );
         }
+        case BACKGROUND_MESSAGE_TYPES.getPageAreaAnnotations: {
+          const annotations = await repository.getByPage(message.payload.url);
+          if (!annotations.ok) {
+            return messageFailure(annotations.error.code, annotations.error.message);
+          }
+          return messageSuccess(
+            annotations.data.filter((annotation) => annotation.type === 'area'),
+          );
+        }
         case BACKGROUND_MESSAGE_TYPES.createAnnotation:
           result = await repository.create(message.payload);
           break;

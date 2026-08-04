@@ -1,6 +1,9 @@
 import AnnotationPopover from '../editor/AnnotationPopover';
 import type { AnnotationEditorValue } from '../editor/AnnotationEditor';
 import PointMarker from '../point/PointMarker';
+import AreaMarker from '../area/AreaMarker';
+import AreaSelectionOverlay from '../area/AreaSelectionOverlay';
+import type { ViewportArea } from '../../services/area-position-service';
 import type { AnnotationColor, AnnotationStatus } from '../../types/annotation';
 import type { OverlayTool } from '../../types/messages';
 import Toolbar from './Toolbar';
@@ -13,6 +16,13 @@ export interface PointMarkerView {
   status: AnnotationStatus;
   left: number;
   top: number;
+}
+
+export interface AreaMarkerView extends ViewportArea {
+  annotationId: string;
+  number: number;
+  color: AnnotationColor;
+  status: AnnotationStatus;
 }
 
 export interface AnnotationEditorView {
@@ -45,10 +55,13 @@ interface AnnotationOverlayProps {
   selectedTool: OverlayTool | null;
   statusMessage: string;
   markers: PointMarkerView[];
+  areaMarkers: AreaMarkerView[];
+  areaPreview: ViewportArea | null;
   editor: AnnotationEditorView | null;
   textSelection: TextSelectionButtonView | null;
   textMemoList: TextMemoListItemView[] | null;
   onOpenMarker: (annotationId: string) => void;
+  onOpenAreaMarker: (annotationId: string) => void;
   onMoveMarker: (annotationId: string, clientX: number, clientY: number) => Promise<void>;
   onOpenTextMemo: (annotationId: string) => void;
   onSelectTool: (tool: OverlayTool) => void;
@@ -62,10 +75,13 @@ export default function AnnotationOverlay({
   selectedTool,
   statusMessage,
   markers,
+  areaMarkers,
+  areaPreview,
   editor,
   textSelection,
   textMemoList,
   onOpenMarker,
+  onOpenAreaMarker,
   onMoveMarker,
   onOpenTextMemo,
   onSelectTool,
@@ -83,6 +99,15 @@ export default function AnnotationOverlay({
           onMove={(clientX, clientY) => onMoveMarker(marker.annotationId, clientX, clientY)}
         />
       ))}
+
+      {areaMarkers.map((marker) => (
+        <AreaMarker
+          key={marker.annotationId}
+          {...marker}
+          onOpen={() => onOpenAreaMarker(marker.annotationId)}
+        />
+      ))}
+      {areaPreview === null ? null : <AreaSelectionOverlay {...areaPreview} />}
 
       {editor === null ? null : <AnnotationPopover {...editor} />}
       {textSelection === null ? null : <TextSelectionButton {...textSelection} />}

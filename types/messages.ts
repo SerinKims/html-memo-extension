@@ -1,6 +1,7 @@
 import type {
   Annotation,
   AnnotationChanges,
+  AreaAnnotation,
   CreateAnnotationInput,
   PointAnnotation,
   PointPosition,
@@ -17,6 +18,7 @@ export const BACKGROUND_MESSAGE_TYPES = {
   getPageAnnotationCount: 'background/get-page-annotation-count',
   getPagePointAnnotations: 'background/get-page-point-annotations',
   getPageTextAnnotations: 'background/get-page-text-annotations',
+  getPageAreaAnnotations: 'background/get-page-area-annotations',
   createAnnotation: 'background/create-annotation',
   updateAnnotation: 'background/update-annotation',
   movePointAnnotation: 'background/move-point-annotation',
@@ -63,6 +65,11 @@ export interface GetPageTextAnnotationsMessage {
   payload: { url: string };
 }
 
+export interface GetPageAreaAnnotationsMessage {
+  type: typeof BACKGROUND_MESSAGE_TYPES.getPageAreaAnnotations;
+  payload: { url: string };
+}
+
 export interface CreateAnnotationMessage {
   type: typeof BACKGROUND_MESSAGE_TYPES.createAnnotation;
   payload: CreateAnnotationInput;
@@ -99,6 +106,7 @@ export type BackgroundMessage =
   | GetPageAnnotationCountMessage
   | GetPagePointAnnotationsMessage
   | GetPageTextAnnotationsMessage
+  | GetPageAreaAnnotationsMessage
   | CreateAnnotationMessage
   | UpdateAnnotationMessage
   | MovePointAnnotationMessage
@@ -177,6 +185,13 @@ export interface PointAnnotationGateway {
 
 export interface TextAnnotationGateway {
   getByPage(url: string): Promise<import('./annotation').TextAnnotation[]>;
+  create(input: CreateAnnotationInput): Promise<Annotation>;
+  update(id: string, changes: AnnotationChanges): Promise<Annotation>;
+  delete(id: string): Promise<boolean>;
+}
+
+export interface AreaAnnotationGateway {
+  getByPage(url: string): Promise<AreaAnnotation[]>;
   create(input: CreateAnnotationInput): Promise<Annotation>;
   update(id: string, changes: AnnotationChanges): Promise<Annotation>;
   delete(id: string): Promise<boolean>;

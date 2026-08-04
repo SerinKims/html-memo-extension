@@ -1,6 +1,7 @@
 import { createRoot, type Root } from 'react-dom/client';
 
 import type { AnnotationEditorValue } from '../editor/AnnotationEditor';
+import { AreaAnnotationTool, type AreaSelection } from '../area/AreaAnnotationTool';
 import { PointAnnotationTool, type PointSelection } from '../point/PointAnnotationTool';
 import { TextAnnotationTool, type TextSelection } from '../text/TextAnnotationTool';
 import { TextHighlight } from '../text/TextHighlight';
@@ -8,6 +9,7 @@ import {
   createAnnotation,
   deleteAnnotation,
   getAnnotationSettings,
+  getPageAreaAnnotations,
   getPageAnnotationCount,
   getPagePointAnnotations,
   getPageTextAnnotations,
@@ -15,14 +17,22 @@ import {
   updateAnnotation,
   updateAnnotationSettings,
 } from '../../services/message-service';
+import { restoreViewportArea, type ViewportArea } from '../../services/area-position-service';
 import {
   calculatePointPosition,
   measureDocument,
   restoreViewportPoint,
 } from '../../services/annotation-position-service';
-import type { PointAnnotation, PointPosition, TextAnnotation } from '../../types/annotation';
+import type {
+  Annotation,
+  AreaAnnotation,
+  PointAnnotation,
+  PointPosition,
+  TextAnnotation,
+} from '../../types/annotation';
 import type { StorageSettings } from '../../types/storage';
 import type {
+  AreaAnnotationGateway,
   OverlayState,
   OverlayTool,
   PointAnnotationGateway,
@@ -32,6 +42,7 @@ import { restoreTextAnchor } from '../../services/text-anchor-restorer';
 import { observeSpaNavigation, type NavigationCleanup } from '../../utils/spa-navigation';
 import AnnotationOverlay, {
   type AnnotationEditorView,
+  type AreaMarkerView,
   type PointMarkerView,
   type TextMemoListItemView,
 } from './AnnotationOverlay';
@@ -45,11 +56,13 @@ interface OverlayControllerOptions {
   loadAnnotationCount?: (url: string) => Promise<number>;
   pointGateway?: PointAnnotationGateway;
   textGateway?: TextAnnotationGateway;
+  areaGateway?: AreaAnnotationGateway;
 }
 
 type EditorState =
   | { mode: 'create-point'; position: PointPosition }
   | { mode: 'create-text'; selection: TextSelection }
+  | { mode: 'create-area'; selection: AreaSelection }
   | { mode: 'edit'; annotationId: string };
 
 const defaultPointGateway: PointAnnotationGateway = {
@@ -69,11 +82,26 @@ const defaultTextGateway: TextAnnotationGateway = {
   delete: deleteAnnotation,
 };
 
+const defaultAreaGateway: AreaAnnotationGateway = {
+  getByPage: getPageAreaAnnotations,
+  create: createAnnotation,
+  update: updateAnnotation,
+  delete: deleteAnnotation,
+};
+
 const initialSettings: StorageSettings = { defaultAuthor: '', defaultColor: 'yellow' };
 
-function byOldestFirst(left: PointAnnotation, right: PointAnnotation): number {
+function byOldestFirst(left: Annotation, right: Annotation): number {
   const difference = Date.parse(left.createdAt) - Date.parse(right.createdAt);
   return difference === 0 ? left.id.localeCompare(right.id) : difference;
+}
+
+function invokeAsync<T>(operation: () => Promise<T>): Promise<T> {
+  try {
+    return operation();
+  } catch (error) {
+    return Promise.reject(error);
+  }
 }
 
 export class OverlayController {
@@ -83,8 +111,10 @@ export class OverlayController {
   private readonly loadAnnotationCount: (url: string) => Promise<number>;
   private readonly pointGateway: PointAnnotationGateway;
   private readonly textGateway: TextAnnotationGateway;
+  private readonly areaGateway: AreaAnnotationGateway;
   private readonly pointTool: PointAnnotationTool;
   private readonly textTool: TextAnnotationTool;
+  private readonly areaTool: AreaAnnotationTool;
   private readonly textHighlight: TextHighlight;
   private root: Root | null = null;
   private host: HTMLElement | null = null;
@@ -98,6 +128,8 @@ export class OverlayController {
   private annotationCount: number | null = null;
   private pointAnnotations: PointAnnotation[] = [];
   private textAnnotations: TextAnnotation[] = [];
+  private areaAnnotations: AreaAnnotation[] = [];
+  private areaPreview: ViewportArea | null = null;
   private readonly restoredTextRanges = new Map<string, Range>();
   private pendingTextSelection: TextSelection | null = null;
   private isTextMemoListOpen = false;
@@ -115,6 +147,7 @@ export class OverlayController {
     this.loadAnnotationCount = options.loadAnnotationCount ?? getPageAnnotationCount;
     this.pointGateway = options.pointGateway ?? defaultPointGateway;
     this.textGateway = options.textGateway ?? defaultTextGateway;
+    this.areaGateway = options.areaGateway ?? defaultAreaGateway;
     this.currentUrl = this.window.location.href;
     this.pointTool = new PointAnnotationTool({
       document: this.document,
@@ -132,6 +165,24 @@ export class OverlayController {
           this.pendingTextSelection = null;
           this.render();
         }
+      },
+      onInvalidSelection: (message) => {
+        this.statusMessage = message;
+        this.render();
+      },
+    });
+    this.areaTool = new AreaAnnotationTool({
+      document: this.document,
+      window: this.window,
+      extensionHostId: OVERLAY_HOST_ID,
+      onPreview: (area) => {
+        this.areaPreview = area;
+        this.render();
+      },
+      onSelect: (selection) => this.handleAreaSelection(selection),
+      onCancel: () => {
+        this.statusMessage = '영역 선택을 취소했습니다.';
+        this.render();
       },
       onInvalidSelection: (message) => {
         this.statusMessage = message;
@@ -176,6 +227,8 @@ export class OverlayController {
     this.annotationCount = null;
     this.pointAnnotations = [];
     this.textAnnotations = [];
+    this.areaAnnotations = [];
+    this.areaPreview = null;
     this.restoredTextRanges.clear();
     this.pendingTextSelection = null;
     this.isTextMemoListOpen = false;
@@ -184,6 +237,7 @@ export class OverlayController {
     this.requestSequence += 1;
     this.pointTool.deactivate();
     this.textTool.deactivate();
+    this.areaTool.deactivate();
     this.textHighlight.destroy();
     this.window.removeEventListener('keydown', this.handleKeyDown, true);
     this.window.removeEventListener('scroll', this.scheduleMarkerRender, true);
@@ -220,6 +274,12 @@ export class OverlayController {
 
   private readonly handleKeyDown = (event: KeyboardEvent): void => {
     if (event.key !== 'Escape') {
+      return;
+    }
+    if (this.areaTool.selecting) {
+      event.preventDefault();
+      event.stopPropagation();
+      this.areaTool.cancelSelection();
       return;
     }
     if (this.editorState !== null) {
@@ -259,12 +319,23 @@ export class OverlayController {
     this.render();
   }
 
+  private handleAreaSelection(selection: AreaSelection): void {
+    if (!this.isActive || this.selectedTool !== 'area' || this.editorState !== null) {
+      return;
+    }
+    this.editorState = { mode: 'create-area', selection };
+    this.statusMessage = '선택한 영역에 메모 내용을 입력하세요.';
+    this.syncTools();
+    this.render();
+  }
+
   private startTextEditor(): void {
     if (this.pendingTextSelection === null) {
       return;
     }
     this.editorState = { mode: 'create-text', selection: this.pendingTextSelection };
     this.pendingTextSelection = null;
+    this.areaPreview = null;
     this.statusMessage = '선택한 텍스트에 남길 메모를 입력하세요.';
     this.syncTools();
     this.render();
@@ -278,6 +349,7 @@ export class OverlayController {
     this.isTextMemoListOpen = false;
     this.restoredTextRanges.clear();
     this.textHighlight.setHighlights([]);
+    this.areaTool.cancelSelection(false);
     this.syncTools();
     this.statusMessage = '페이지 이동을 감지해 메모 상태를 갱신합니다.';
     void this.refreshPageState(url);
@@ -289,16 +361,19 @@ export class OverlayController {
     this.annotationCount = null;
     this.pointAnnotations = [];
     this.textAnnotations = [];
+    this.areaAnnotations = [];
     this.restoredTextRanges.clear();
     this.textHighlight.setHighlights([]);
     this.render();
 
-    const [countResult, pointsResult, textsResult, settingsResult] = await Promise.allSettled([
-      this.loadAnnotationCount(url),
-      this.pointGateway.getByPage(url),
-      this.textGateway.getByPage(url),
-      this.pointGateway.getSettings(),
-    ]);
+    const [countResult, pointsResult, textsResult, areasResult, settingsResult] =
+      await Promise.allSettled([
+        invokeAsync(() => this.loadAnnotationCount(url)),
+        invokeAsync(() => this.pointGateway.getByPage(url)),
+        invokeAsync(() => this.textGateway.getByPage(url)),
+        invokeAsync(() => this.areaGateway.getByPage(url)),
+        invokeAsync(() => this.pointGateway.getSettings()),
+      ]);
     if (!this.isActive || sequence !== this.requestSequence) {
       return;
     }
@@ -313,11 +388,14 @@ export class OverlayController {
       this.textAnnotations = textsResult.value;
       this.restoreTextAnnotations();
     }
+    if (areasResult.status === 'fulfilled') {
+      this.areaAnnotations = areasResult.value;
+    }
     if (settingsResult.status === 'fulfilled') {
       this.settings = settingsResult.value;
     }
 
-    const failure = [countResult, pointsResult, textsResult, settingsResult].find(
+    const failure = [countResult, pointsResult, textsResult, areasResult, settingsResult].find(
       (result) => result.status === 'rejected',
     );
     if (failure?.status === 'rejected') {
@@ -423,6 +501,12 @@ export class OverlayController {
     } else {
       this.textTool.deactivate();
     }
+    if (this.isActive && this.selectedTool === 'area' && this.editorState === null) {
+      this.areaTool.activate();
+    } else {
+      this.areaTool.deactivate();
+      this.areaPreview = null;
+    }
   }
 
   private restoreTextAnnotations(): void {
@@ -468,12 +552,24 @@ export class OverlayController {
     this.render();
   }
 
+  private openAreaEditor(annotationId: string): void {
+    if (!this.areaAnnotations.some((annotation) => annotation.id === annotationId)) {
+      return;
+    }
+    this.editorState = { mode: 'edit', annotationId };
+    this.statusMessage = '영역 메모를 수정할 수 있습니다.';
+    this.syncTools();
+    this.render();
+  }
+
   private closeEditor(): void {
     this.editorState = null;
     this.statusMessage =
       this.selectedTool === 'point'
         ? '웹페이지에서 메모를 남길 위치를 클릭하세요.'
-        : '메모 편집을 취소했습니다.';
+        : this.selectedTool === 'area'
+          ? '웹페이지에서 메모를 남길 영역을 드래그하세요.'
+          : '메모 편집을 취소했습니다.';
     this.syncTools();
     this.render();
   }
@@ -484,7 +580,7 @@ export class OverlayController {
       return;
     }
 
-    let savedType: 'point' | 'text';
+    let savedType: 'point' | 'text' | 'area';
     if (editorState.mode === 'create-point') {
       const created = await this.pointGateway.create({
         type: 'point',
@@ -520,24 +616,47 @@ export class OverlayController {
       this.restoredTextRanges.set(created.id, editorState.selection.range);
       this.annotationCount = (this.annotationCount ?? 0) + 1;
       savedType = 'text';
+    } else if (editorState.mode === 'create-area') {
+      const created = await this.areaGateway.create({
+        type: 'area',
+        originalUrl: this.currentUrl,
+        pageTitle: this.document.title,
+        content: value.content,
+        author: value.author,
+        color: value.color,
+        status: value.status,
+        position: editorState.selection.position,
+      });
+      if (created.type !== 'area') {
+        throw new Error('저장된 영역 메모 형식이 올바르지 않습니다.');
+      }
+      this.areaAnnotations = [...this.areaAnnotations, created];
+      this.annotationCount = (this.annotationCount ?? 0) + 1;
+      savedType = 'area';
     } else {
       const isText = this.textAnnotations.some(
         (annotation) => annotation.id === editorState.annotationId,
       );
-      const updated = await (isText ? this.textGateway : this.pointGateway).update(
-        editorState.annotationId,
-        value,
+      const isArea = this.areaAnnotations.some(
+        (annotation) => annotation.id === editorState.annotationId,
       );
+      const gateway = isText ? this.textGateway : isArea ? this.areaGateway : this.pointGateway;
+      const updated = await gateway.update(editorState.annotationId, value);
       if (isText && updated.type === 'text') {
         this.textAnnotations = this.textAnnotations.map((annotation) =>
           annotation.id === updated.id ? updated : annotation,
         );
         savedType = 'text';
-      } else if (!isText && updated.type === 'point') {
+      } else if (!isText && !isArea && updated.type === 'point') {
         this.pointAnnotations = this.pointAnnotations.map((annotation) =>
           annotation.id === updated.id ? updated : annotation,
         );
         savedType = 'point';
+      } else if (isArea && updated.type === 'area') {
+        this.areaAnnotations = this.areaAnnotations.map((annotation) =>
+          annotation.id === updated.id ? updated : annotation,
+        );
+        savedType = 'area';
       } else {
         throw new Error('수정된 메모 형식이 올바르지 않습니다.');
       }
@@ -554,7 +673,7 @@ export class OverlayController {
     this.editorState = null;
     this.statusMessage = settingsFailed
       ? '메모는 저장했지만 기본 작성자와 색상은 기억하지 못했습니다.'
-      : `${savedType === 'text' ? '텍스트' : '위치'} 메모를 저장했습니다.`;
+      : `${savedType === 'text' ? '텍스트' : savedType === 'area' ? '영역' : '위치'} 메모를 저장했습니다.`;
     if (savedType === 'text') {
       this.restoreTextAnnotations();
       this.window.getSelection()?.removeAllRanges();
@@ -571,17 +690,22 @@ export class OverlayController {
     const textAnnotation = this.textAnnotations.find(
       (annotation) => annotation.id === annotationId,
     );
-    if (
-      !this.window.confirm(
-        `이 ${textAnnotation === undefined ? '위치' : '텍스트'} 메모를 삭제하시겠습니까?`,
-      )
-    ) {
+    const areaAnnotation = this.areaAnnotations.find(
+      (annotation) => annotation.id === annotationId,
+    );
+    const kind =
+      textAnnotation !== undefined ? '텍스트' : areaAnnotation !== undefined ? '영역' : '위치';
+    if (!this.window.confirm(`이 ${kind} 메모를 삭제하시겠습니까?`)) {
       return;
     }
 
-    const deleted = await (
-      textAnnotation === undefined ? this.pointGateway : this.textGateway
-    ).delete(annotationId);
+    const deleteGateway =
+      textAnnotation !== undefined
+        ? this.textGateway
+        : areaAnnotation !== undefined
+          ? this.areaGateway
+          : this.pointGateway;
+    const deleted = await deleteGateway.delete(annotationId);
     if (!deleted) {
       throw new Error('삭제할 메모를 찾지 못했습니다.');
     }
@@ -591,11 +715,14 @@ export class OverlayController {
     this.textAnnotations = this.textAnnotations.filter(
       (annotation) => annotation.id !== annotationId,
     );
+    this.areaAnnotations = this.areaAnnotations.filter(
+      (annotation) => annotation.id !== annotationId,
+    );
     this.restoredTextRanges.delete(annotationId);
     this.textHighlight.remove(annotationId);
     this.annotationCount = Math.max(0, (this.annotationCount ?? 1) - 1);
     this.editorState = null;
-    this.statusMessage = `${textAnnotation === undefined ? '위치' : '텍스트'} 메모를 삭제했습니다.`;
+    this.statusMessage = `${kind} 메모를 삭제했습니다.`;
     this.syncTools();
     this.render();
   }
@@ -656,6 +783,17 @@ export class OverlayController {
     }));
   }
 
+  private createAreaMarkerViews(): AreaMarkerView[] {
+    const size = measureDocument(this.document);
+    return this.areaAnnotations.toSorted(byOldestFirst).map((annotation, index) => ({
+      annotationId: annotation.id,
+      number: index + 1,
+      color: annotation.color,
+      status: annotation.status,
+      ...restoreViewportArea(annotation.position, size, this.window.scrollX, this.window.scrollY),
+    }));
+  }
+
   private createEditorView(): AnnotationEditorView | null {
     if (this.editorState === null) {
       return null;
@@ -702,6 +840,24 @@ export class OverlayController {
       };
     }
 
+    if (this.editorState.mode === 'create-area') {
+      return {
+        key: 'create-area',
+        left: this.editorState.selection.clientX,
+        top: this.editorState.selection.clientY,
+        initialValue: {
+          content: '',
+          author: this.settings.defaultAuthor,
+          color: this.settings.defaultColor,
+          status: 'open',
+        },
+        isEditing: false,
+        kindLabel: '영역 메모',
+        onSave: (value) => this.saveEditor(value),
+        onCancel: () => this.closeEditor(),
+      };
+    }
+
     const annotationId = this.editorState.annotationId;
     const pointAnnotation = this.pointAnnotations.find(
       (candidate) => candidate.id === annotationId,
@@ -723,6 +879,32 @@ export class OverlayController {
           status: pointAnnotation.status,
         },
         isEditing: true,
+        onSave: (value) => this.saveEditor(value),
+        onCancel: () => this.closeEditor(),
+        onDelete: () => this.deleteEditorAnnotation(),
+      };
+    }
+
+    const areaAnnotation = this.areaAnnotations.find((candidate) => candidate.id === annotationId);
+    if (areaAnnotation !== undefined) {
+      const area = restoreViewportArea(
+        areaAnnotation.position,
+        size,
+        this.window.scrollX,
+        this.window.scrollY,
+      );
+      return {
+        key: areaAnnotation.id,
+        left: area.left + area.width,
+        top: area.top + area.height,
+        initialValue: {
+          content: areaAnnotation.content,
+          author: areaAnnotation.author,
+          color: areaAnnotation.color,
+          status: areaAnnotation.status,
+        },
+        isEditing: true,
+        kindLabel: '영역 메모',
         onSave: (value) => this.saveEditor(value),
         onCancel: () => this.closeEditor(),
         onDelete: () => this.deleteEditorAnnotation(),
@@ -781,6 +963,8 @@ export class OverlayController {
         selectedTool={this.selectedTool}
         statusMessage={this.statusMessage}
         markers={this.createMarkerViews()}
+        areaMarkers={this.createAreaMarkerViews()}
+        areaPreview={this.areaPreview}
         editor={this.createEditorView()}
         textSelection={
           this.pendingTextSelection === null
@@ -793,6 +977,7 @@ export class OverlayController {
         }
         textMemoList={this.createTextMemoListViews()}
         onOpenMarker={(annotationId) => this.openPointEditor(annotationId)}
+        onOpenAreaMarker={(annotationId) => this.openAreaEditor(annotationId)}
         onOpenTextMemo={(annotationId) => this.openTextEditor(annotationId)}
         onMoveMarker={(annotationId, clientX, clientY) =>
           this.moveMarker(annotationId, clientX, clientY)
@@ -801,6 +986,8 @@ export class OverlayController {
           this.selectedTool = tool;
           this.editorState = null;
           this.pendingTextSelection = null;
+          this.areaTool.cancelSelection(false);
+          this.areaPreview = null;
           const labels: Record<OverlayTool, string> = {
             point: '위치 메모',
             text: '텍스트 메모',
