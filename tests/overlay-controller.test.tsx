@@ -2,7 +2,7 @@ import { act } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { OVERLAY_HOST_ID, OverlayController } from '../features/overlay/overlay-controller';
-import type { PointAnnotationGateway } from '../types/messages';
+import type { PointAnnotationGateway, TextAnnotationGateway } from '../types/messages';
 
 function createPointGateway(
   overrides: Partial<PointAnnotationGateway> = {},
@@ -19,6 +19,16 @@ function createPointGateway(
   };
 }
 
+function createTextGateway(overrides: Partial<TextAnnotationGateway> = {}): TextAnnotationGateway {
+  return {
+    getByPage: vi.fn().mockResolvedValue([]),
+    create: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn().mockResolvedValue(true),
+    ...overrides,
+  };
+}
+
 describe('OverlayController', () => {
   let controller: OverlayController | null = null;
 
@@ -30,6 +40,8 @@ describe('OverlayController', () => {
     act(() => controller?.deactivate());
     controller = null;
     document.getElementById(OVERLAY_HOST_ID)?.remove();
+    document.body.replaceChildren();
+    vi.useRealTimers();
   });
 
   it('Shadow DOM 호스트를 한 번만 만들고 현재 페이지 메모 수를 표시한다', async () => {
@@ -161,5 +173,60 @@ describe('OverlayController', () => {
 
     expect(pointGateway.delete).toHaveBeenCalledWith('point-1');
     expect(shadowRoot?.querySelector('[data-annotation-id="point-1"]')).toBeNull();
+  });
+
+  it('복원 실패 텍스트 메모를 미배치로 표시하고 동적 렌더링 후 다시 배치한다', async () => {
+    vi.useFakeTimers();
+    const annotation = {
+      id: 'text-1',
+      pageKey: 'page-1',
+      originalUrl: window.location.href,
+      pageTitle: '문서',
+      type: 'text' as const,
+      content: '동적 영역 검토',
+      author: '',
+      color: 'yellow' as const,
+      status: 'open' as const,
+      anchor: {
+        exactText: '늦게 렌더링된 문장',
+        prefixText: '',
+        suffixText: '',
+        cssSelector: '#dynamic-content',
+        startOffset: 0,
+        endOffset: 10,
+      },
+      createdAt: '2026-08-04T00:00:00.000Z',
+      updatedAt: '2026-08-04T00:00:00.000Z',
+    };
+    controller = new OverlayController({
+      styles: '',
+      loadAnnotationCount: vi.fn().mockResolvedValue(1),
+      pointGateway: createPointGateway(),
+      textGateway: createTextGateway({ getByPage: vi.fn().mockResolvedValue([annotation]) }),
+    });
+
+    await act(async () => {
+      controller?.activate();
+      await Promise.resolve();
+    });
+    const shadowRoot = document.getElementById(OVERLAY_HOST_ID)?.shadowRoot;
+    const listButton = shadowRoot?.querySelector<HTMLButtonElement>(
+      'button[aria-label="메모 목록"]',
+    );
+    act(() => listButton?.click());
+    expect(shadowRoot?.textContent).toContain('미배치 · 원문 위치를 찾지 못함');
+
+    await act(async () => {
+      const dynamic = document.createElement('p');
+      dynamic.id = 'dynamic-content';
+      dynamic.textContent = '늦게 렌더링된 문장';
+      document.body.append(dynamic);
+      await Promise.resolve();
+      vi.advanceTimersByTime(300);
+      await Promise.resolve();
+    });
+
+    expect(shadowRoot?.textContent).toContain('배치됨');
+    expect(shadowRoot?.textContent).not.toContain('미배치 · 원문 위치를 찾지 못함');
   });
 });

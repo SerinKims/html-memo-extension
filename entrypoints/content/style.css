@@ -61,8 +61,100 @@ textarea {
 
 .memo-status-card,
 .memo-toolbar,
-.memo-overlay__notice {
+.memo-overlay__notice,
+.text-selection-button,
+.text-memo-list {
   pointer-events: auto;
+}
+
+.text-selection-button {
+  position: fixed;
+  min-width: 88px;
+  min-height: 34px;
+  padding: 7px 12px;
+  border: 1px solid #1d4ed8;
+  border-radius: 999px;
+  background: #2563eb;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  box-shadow: 0 7px 20px rgb(15 23 42 / 28%);
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.text-memo-list {
+  position: fixed;
+  top: 24px;
+  right: 194px;
+  width: min(340px, calc(100vw - 210px));
+  max-height: min(560px, calc(100vh - 48px));
+  overflow: auto;
+  padding: 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  background: rgb(255 255 255 / 98%);
+  box-shadow: 0 14px 40px rgb(15 23 42 / 24%);
+}
+
+.text-memo-list > header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+
+.text-memo-list > p {
+  margin: 8px 0;
+  color: #64748b;
+}
+
+.text-memo-list ul {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.text-memo-list li button {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 3px;
+  padding: 9px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #fff;
+  color: #334155;
+  cursor: pointer;
+  text-align: left;
+}
+
+.text-memo-list li button:hover {
+  border-color: #93c5fd;
+  background: #eff6ff;
+}
+
+.text-memo-list__quote {
+  max-width: 100%;
+  overflow: hidden;
+  color: #0f172a;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.text-memo-list em {
+  color: #15803d;
+  font-size: 10px;
+  font-style: normal;
+}
+
+.text-memo-list em.is-unplaced {
+  color: #b91c1c;
+  font-weight: 800;
 }
 
 .point-marker {

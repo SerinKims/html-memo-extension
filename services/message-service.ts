@@ -13,6 +13,7 @@ import type {
   CreateAnnotationInput,
   PointAnnotation,
   PointPosition,
+  TextAnnotation,
 } from '../types/annotation';
 import type { StorageSettings } from '../types/storage';
 
@@ -84,6 +85,17 @@ export function getPagePointAnnotations(url: string): Promise<PointAnnotation[]>
   return unwrapResponse<PointAnnotation[]>(
     response,
     '현재 페이지의 위치 메모를 불러오지 못했습니다.',
+  );
+}
+
+export function getPageTextAnnotations(url: string): Promise<TextAnnotation[]> {
+  const response = browser.runtime.sendMessage({
+    type: BACKGROUND_MESSAGE_TYPES.getPageTextAnnotations,
+    payload: { url },
+  });
+  return unwrapResponse<TextAnnotation[]>(
+    response,
+    '현재 페이지의 텍스트 메모를 불러오지 못했습니다.',
   );
 }
 

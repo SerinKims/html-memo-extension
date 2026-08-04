@@ -16,6 +16,7 @@ export const CONTENT_MESSAGE_TYPES = {
 export const BACKGROUND_MESSAGE_TYPES = {
   getPageAnnotationCount: 'background/get-page-annotation-count',
   getPagePointAnnotations: 'background/get-page-point-annotations',
+  getPageTextAnnotations: 'background/get-page-text-annotations',
   createAnnotation: 'background/create-annotation',
   updateAnnotation: 'background/update-annotation',
   movePointAnnotation: 'background/move-point-annotation',
@@ -57,6 +58,11 @@ export interface GetPagePointAnnotationsMessage {
   payload: { url: string };
 }
 
+export interface GetPageTextAnnotationsMessage {
+  type: typeof BACKGROUND_MESSAGE_TYPES.getPageTextAnnotations;
+  payload: { url: string };
+}
+
 export interface CreateAnnotationMessage {
   type: typeof BACKGROUND_MESSAGE_TYPES.createAnnotation;
   payload: CreateAnnotationInput;
@@ -92,6 +98,7 @@ export type ContentMessage =
 export type BackgroundMessage =
   | GetPageAnnotationCountMessage
   | GetPagePointAnnotationsMessage
+  | GetPageTextAnnotationsMessage
   | CreateAnnotationMessage
   | UpdateAnnotationMessage
   | MovePointAnnotationMessage
@@ -166,6 +173,13 @@ export interface PointAnnotationGateway {
   delete(id: string): Promise<boolean>;
   getSettings(): Promise<StorageSettings>;
   updateSettings(changes: Partial<StorageSettings>): Promise<StorageSettings>;
+}
+
+export interface TextAnnotationGateway {
+  getByPage(url: string): Promise<import('./annotation').TextAnnotation[]>;
+  create(input: CreateAnnotationInput): Promise<Annotation>;
+  update(id: string, changes: AnnotationChanges): Promise<Annotation>;
+  delete(id: string): Promise<boolean>;
 }
 
 export function isMessageResponse<T>(value: unknown): value is MessageResponse<T> {

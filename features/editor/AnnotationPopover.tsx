@@ -8,6 +8,7 @@ interface AnnotationPopoverProps {
   onSave: (value: AnnotationEditorValue) => Promise<void>;
   onCancel: () => void;
   onDelete?: () => Promise<void>;
+  kindLabel?: string;
 }
 
 export default function AnnotationPopover({ left, top, ...editorProps }: AnnotationPopoverProps) {
@@ -19,7 +20,11 @@ export default function AnnotationPopover({ left, top, ...editorProps }: Annotat
         top: Math.max(12, Math.min(top + 14, window.innerHeight - 430)),
       }}
       role="dialog"
-      aria-label={editorProps.isEditing ? '위치 메모 수정' : '새 위치 메모'}
+      aria-label={
+        editorProps.isEditing
+          ? `${editorProps.kindLabel ?? '위치 메모'} 수정`
+          : `새 ${editorProps.kindLabel ?? '위치 메모'}`
+      }
     >
       <AnnotationEditor {...editorProps} />
     </section>

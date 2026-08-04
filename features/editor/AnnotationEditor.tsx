@@ -19,6 +19,7 @@ interface AnnotationEditorProps {
   onSave: (value: AnnotationEditorValue) => Promise<void>;
   onCancel: () => void;
   onDelete?: () => Promise<void>;
+  kindLabel?: string;
 }
 
 const COLOR_LABELS: Record<AnnotationColor, string> = {
@@ -35,6 +36,7 @@ export default function AnnotationEditor({
   onSave,
   onCancel,
   onDelete,
+  kindLabel = '위치 메모',
 }: AnnotationEditorProps) {
   const [value, setValue] = useState(initialValue);
   const [isBusy, setIsBusy] = useState(false);
@@ -75,7 +77,7 @@ export default function AnnotationEditor({
   return (
     <form className="annotation-editor" onSubmit={(event) => void handleSubmit(event)}>
       <header className="annotation-editor__header">
-        <strong>{isEditing ? '위치 메모 수정' : '새 위치 메모'}</strong>
+        <strong>{isEditing ? `${kindLabel} 수정` : `새 ${kindLabel}`}</strong>
         <button type="button" aria-label="메모 편집 닫기" onClick={onCancel} disabled={isBusy}>
           ×
         </button>

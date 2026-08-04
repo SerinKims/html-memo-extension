@@ -4,6 +4,7 @@ import PointMarker from '../point/PointMarker';
 import type { AnnotationColor, AnnotationStatus } from '../../types/annotation';
 import type { OverlayTool } from '../../types/messages';
 import Toolbar from './Toolbar';
+import TextSelectionButton from '../text/TextSelectionButton';
 
 export interface PointMarkerView {
   annotationId: string;
@@ -23,6 +24,20 @@ export interface AnnotationEditorView {
   onSave: (value: AnnotationEditorValue) => Promise<void>;
   onCancel: () => void;
   onDelete?: () => Promise<void>;
+  kindLabel?: string;
+}
+
+export interface TextSelectionButtonView {
+  left: number;
+  top: number;
+  onAdd: () => void;
+}
+
+export interface TextMemoListItemView {
+  annotationId: string;
+  exactText: string;
+  content: string;
+  isPlaced: boolean;
 }
 
 interface AnnotationOverlayProps {
@@ -31,8 +46,11 @@ interface AnnotationOverlayProps {
   statusMessage: string;
   markers: PointMarkerView[];
   editor: AnnotationEditorView | null;
+  textSelection: TextSelectionButtonView | null;
+  textMemoList: TextMemoListItemView[] | null;
   onOpenMarker: (annotationId: string) => void;
   onMoveMarker: (annotationId: string, clientX: number, clientY: number) => Promise<void>;
+  onOpenTextMemo: (annotationId: string) => void;
   onSelectTool: (tool: OverlayTool) => void;
   onShowList: () => void;
   onSaveHtml: () => void;
@@ -45,8 +63,11 @@ export default function AnnotationOverlay({
   statusMessage,
   markers,
   editor,
+  textSelection,
+  textMemoList,
   onOpenMarker,
   onMoveMarker,
+  onOpenTextMemo,
   onSelectTool,
   onShowList,
   onSaveHtml,
@@ -64,6 +85,33 @@ export default function AnnotationOverlay({
       ))}
 
       {editor === null ? null : <AnnotationPopover {...editor} />}
+      {textSelection === null ? null : <TextSelectionButton {...textSelection} />}
+
+      {textMemoList === null ? null : (
+        <section className="text-memo-list" aria-label="텍스트 메모 목록">
+          <header>
+            <strong>텍스트 메모</strong>
+            <span>{textMemoList.length}개</span>
+          </header>
+          {textMemoList.length === 0 ? (
+            <p>현재 페이지에 텍스트 메모가 없습니다.</p>
+          ) : (
+            <ul>
+              {textMemoList.map((item) => (
+                <li key={item.annotationId}>
+                  <button type="button" onClick={() => onOpenTextMemo(item.annotationId)}>
+                    <span className="text-memo-list__quote">“{item.exactText}”</span>
+                    <span>{item.content}</span>
+                    <em className={item.isPlaced ? 'is-placed' : 'is-unplaced'}>
+                      {item.isPlaced ? '배치됨' : '미배치 · 원문 위치를 찾지 못함'}
+                    </em>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
 
       <section className="memo-status-card" aria-label="메모 모드 상태">
         <div className="memo-status-card__mode">

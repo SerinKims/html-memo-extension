@@ -38,6 +38,15 @@ export default defineBackground(() => {
             annotations.data.filter((annotation) => annotation.type === 'point'),
           );
         }
+        case BACKGROUND_MESSAGE_TYPES.getPageTextAnnotations: {
+          const annotations = await repository.getByPage(message.payload.url);
+          if (!annotations.ok) {
+            return messageFailure(annotations.error.code, annotations.error.message);
+          }
+          return messageSuccess(
+            annotations.data.filter((annotation) => annotation.type === 'text'),
+          );
+        }
         case BACKGROUND_MESSAGE_TYPES.createAnnotation:
           result = await repository.create(message.payload);
           break;
