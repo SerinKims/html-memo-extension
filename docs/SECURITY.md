@@ -71,7 +71,8 @@
     "downloads",
     "scripting",
     "offscreen"
-  ]
+  ],
+  "host_permissions": ["file:///*"]
 }
 ```
 
@@ -80,8 +81,9 @@
 - `downloads`: 단일 HTML 파일 저장
 - `scripting`: 필요한 경우 Content Script 주입
 - `offscreen`: Canvas 이미지 합성
+- `file:///*`: 사용자가 명시적으로 허용한 경우 임의의 로컬 HTML에 런타임 주입
 
-`host_permissions`는 가능한 좁게 유지한다. 모든 사이트에서 자동 동작해야 하는 요구가 생기면 사용자에게 권한 의미를 명확히 안내한다.
+`file:///*`는 특정 파일 하나가 아니라 Chrome이 접근 가능한 모든 로컬 파일 URL 범위다. 설치 및 Popup 안내에서 이 의미를 고지하고, 사용자가 메모 시작을 누르기 전에는 Content Script를 자동 주입하지 않는다. HTTP/HTTPS 전체 호스트 권한은 요청하지 않는다.
 
 `unlimitedStorage` 권한은 기본 설계에 포함하지 않는다. 실제 연구 업무에서 10MB 제한을 자주 넘는다는 근거가 생길 때만 별도 의사결정으로 검토한다.
 
@@ -90,6 +92,12 @@
 ### 로컬 파일 유출
 
 내보낸 HTML에는 스크린샷과 메모가 포함된다. 파일을 전달받은 사람은 파일 안의 모든 정보를 볼 수 있다. 따라서 내보내기 전 검토와 민감정보 제거 절차가 중요하다.
+
+임의 로컬 HTML 메모를 구분하기 위한 절대 경로는 `chrome.storage.local` 내부에서만 사용한다. 내보내기 변환 시 annotation의 `originalUrl`, 드라이브명, 사용자명, 디렉터리 경로를 제거하고 `source.fileName`만 남긴다.
+
+### 검토 HTML 수정본
+
+검토 HTML의 새 메모는 브라우저 메모리에만 유지한다. 인라인 생성기는 원본 파일을 덮어쓰지 않고 새 Blob 다운로드만 수행하며, revision HTML에도 외부 URL이나 로컬 절대 경로를 새로 추가하지 않는다. 미저장 변경이 있으면 페이지 이탈 경고를 표시한다.
 
 ### 메모 본문 XSS
 

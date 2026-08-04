@@ -88,6 +88,24 @@ describe('AnnotationRepository', () => {
     expect(unwrap(await repository.getById(text.id))).toEqual(text);
   });
 
+  it('로컬 파일 URL의 query와 fragment가 달라도 같은 파일 메모로 복원한다', async () => {
+    const { repository } = createRepository();
+    const created = unwrap(
+      await repository.create(
+        pointInput('file:///C:/research/%ED%95%9C%EA%B8%80%20report.html?draft=1#intro'),
+      ),
+    );
+
+    expect(
+      unwrap(
+        await repository.getByPage(
+          'file:///C:/research/%ED%95%9C%EA%B8%80%20report.html?draft=2#other',
+        ),
+      ),
+    ).toEqual([created]);
+    expect(unwrap(await repository.getByPage('file:///C:/archive/한글%20report.html'))).toEqual([]);
+  });
+
   it('메모를 수정하고 상태를 변경하고 삭제한다', async () => {
     const { repository, tick } = createRepository();
     const created = unwrap(await repository.create(pointInput()));
@@ -103,6 +121,25 @@ describe('AnnotationRepository', () => {
     expect(resolved.status).toBe('resolved');
     expect(unwrap(await repository.delete(created.id))).toBe(true);
     expect(unwrap(await repository.getById(created.id))).toBeNull();
+  });
+
+  it('빈 메모를 거부하고 마지막 작성자와 기본 색상을 기억한다', async () => {
+    const { repository } = createRepository();
+    const invalid = await repository.create({ ...pointInput(), content: '   ' });
+    expect(invalid).toEqual({
+      ok: false,
+      error: expect.objectContaining({ code: 'invalid_input' }),
+    });
+
+    expect(
+      unwrap(
+        await repository.updateSettings({ defaultAuthor: '마지막 작성자', defaultColor: 'blue' }),
+      ),
+    ).toEqual({ defaultAuthor: '마지막 작성자', defaultColor: 'blue' });
+    expect(unwrap(await repository.getSettings())).toEqual({
+      defaultAuthor: '마지막 작성자',
+      defaultColor: 'blue',
+    });
   });
 
   it('페이지별, 기간별, 일괄, 전체 삭제를 지원한다', async () => {

@@ -9,6 +9,7 @@ import {
   type OverlayState,
 } from '../../types/messages';
 import overlayStyles from './style.css?inline';
+import { EXPORT_MARKER_NAME } from '../../types/export';
 
 const CONTENT_STATE_KEY = '__HTML_MEMO_EXTENSION_CONTENT_STATE_V1__';
 
@@ -23,6 +24,13 @@ type ContentGlobal = typeof globalThis & {
 export default defineContentScript({
   registration: 'runtime',
   main() {
+    if (
+      document.contentType !== 'text/html' ||
+      document.querySelector(`meta[name="${EXPORT_MARKER_NAME}"]`)?.getAttribute('content') === '2'
+    ) {
+      return;
+    }
+
     const contentGlobal = globalThis as ContentGlobal;
     const existingState = contentGlobal[CONTENT_STATE_KEY];
 

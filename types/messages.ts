@@ -1,3 +1,11 @@
+import type {
+  Annotation,
+  AnnotationChanges,
+  CreateAnnotationInput,
+  PointAnnotation,
+} from './annotation';
+import type { StorageSettings } from './storage';
+
 export const CONTENT_MESSAGE_TYPES = {
   activateMemoMode: 'content/activate-memo-mode',
   deactivateMemoMode: 'content/deactivate-memo-mode',
@@ -6,6 +14,12 @@ export const CONTENT_MESSAGE_TYPES = {
 
 export const BACKGROUND_MESSAGE_TYPES = {
   getPageAnnotationCount: 'background/get-page-annotation-count',
+  getPagePointAnnotations: 'background/get-page-point-annotations',
+  createAnnotation: 'background/create-annotation',
+  updateAnnotation: 'background/update-annotation',
+  deleteAnnotation: 'background/delete-annotation',
+  getSettings: 'background/get-settings',
+  updateSettings: 'background/update-settings',
 } as const;
 
 export type OverlayTool = 'point' | 'text' | 'area';
@@ -36,10 +50,46 @@ export interface GetPageAnnotationCountMessage {
   };
 }
 
+export interface GetPagePointAnnotationsMessage {
+  type: typeof BACKGROUND_MESSAGE_TYPES.getPagePointAnnotations;
+  payload: { url: string };
+}
+
+export interface CreateAnnotationMessage {
+  type: typeof BACKGROUND_MESSAGE_TYPES.createAnnotation;
+  payload: CreateAnnotationInput;
+}
+
+export interface UpdateAnnotationMessage {
+  type: typeof BACKGROUND_MESSAGE_TYPES.updateAnnotation;
+  payload: { id: string; changes: AnnotationChanges };
+}
+
+export interface DeleteAnnotationMessage {
+  type: typeof BACKGROUND_MESSAGE_TYPES.deleteAnnotation;
+  payload: { id: string };
+}
+
+export interface GetSettingsMessage {
+  type: typeof BACKGROUND_MESSAGE_TYPES.getSettings;
+}
+
+export interface UpdateSettingsMessage {
+  type: typeof BACKGROUND_MESSAGE_TYPES.updateSettings;
+  payload: Partial<StorageSettings>;
+}
+
 export type ContentMessage =
   ActivateMemoModeMessage | DeactivateMemoModeMessage | GetOverlayStateMessage;
 
-export type BackgroundMessage = GetPageAnnotationCountMessage;
+export type BackgroundMessage =
+  | GetPageAnnotationCountMessage
+  | GetPagePointAnnotationsMessage
+  | CreateAnnotationMessage
+  | UpdateAnnotationMessage
+  | DeleteAnnotationMessage
+  | GetSettingsMessage
+  | UpdateSettingsMessage;
 export type ExtensionMessage = ContentMessage | BackgroundMessage;
 
 export interface MessageSuccess<T> {
@@ -91,6 +141,22 @@ export function isGetPageAnnotationCountMessage(
   }
 
   return typeof value.payload.url === 'string';
+}
+
+export function isBackgroundMessage(value: unknown): value is BackgroundMessage {
+  if (typeof value !== 'object' || value === null || !('type' in value)) {
+    return false;
+  }
+  return Object.values(BACKGROUND_MESSAGE_TYPES).some((candidate) => candidate === value.type);
+}
+
+export interface PointAnnotationGateway {
+  getByPage(url: string): Promise<PointAnnotation[]>;
+  create(input: CreateAnnotationInput): Promise<Annotation>;
+  update(id: string, changes: AnnotationChanges): Promise<Annotation>;
+  delete(id: string): Promise<boolean>;
+  getSettings(): Promise<StorageSettings>;
+  updateSettings(changes: Partial<StorageSettings>): Promise<StorageSettings>;
 }
 
 export function isMessageResponse<T>(value: unknown): value is MessageResponse<T> {

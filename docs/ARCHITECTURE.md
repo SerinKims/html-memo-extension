@@ -130,6 +130,8 @@ sequenceDiagram
 - `downloads`: 생성된 HTML 파일 다운로드
 - `offscreen`: 이미지 합성에 Offscreen Document를 사용할 경우
 
+호스트 권한은 `file:///*`만 선언한다. 이 권한은 임의의 로컬 HTML을 지원하기 위한 것이며 정적 Content Script 자동 주입에는 사용하지 않는다. Popup의 사용자 동작 후 `chrome.extension.isAllowedFileSchemeAccess()`를 확인하고 런타임으로만 주입한다. HTTP/HTTPS 페이지는 기존 `activeTab` 임시 권한을 유지한다.
+
 `tabs` 권한은 URL과 제목 접근이 `activeTab`만으로 부족한 경우에만 검토한다.
 
 ## 전체 페이지 스크린샷 생성 방식
@@ -151,6 +153,19 @@ sequenceDiagram
 5. HTML 템플릿에 인라인 CSS, 인라인 JavaScript, Base64 이미지, JSON 데이터 삽입
 6. Blob 생성
 7. `chrome.downloads.download`로 `.html` 파일 저장
+
+내보낸 HTML에는 `html-memo-export=2` 메타 마커와 v2 JSON을 포함한다. Content Script 사전 검사는 이 마커가 있으면 오버레이 주입을 중단하고 내장 검토 UI 사용을 안내한다.
+
+검토 HTML의 후속 편집은 확장 프로그램과 분리된다. 위치·영역·일반 댓글은 메모리에서 편집하며, 인라인 JavaScript가 현재 DOM 템플릿과 안전하게 이스케이프한 JSON을 Blob으로 직렬화해 다음 revision HTML을 다운로드한다. 원본 파일 쓰기, `chrome.storage.local`, 확장 API에는 접근하지 않는다.
+
+## 로컬 HTML 데이터 흐름
+
+1. Popup이 활성 탭 URL이 `file:`인지 확인한다.
+2. 파일 URL 접근이 꺼져 있으면 확장 상세 설정 이동 안내를 표시한다.
+3. 사전 주입 검사로 `document.contentType`이 `text/html`인지, 자체 검토 HTML인지 판별한다.
+4. 임의 로컬 HTML에만 런타임 Content Script를 주입한다.
+5. URL 정규화 시 query와 fragment를 제거하고 전체 파일 URL의 해시를 페이지 키로 사용한다.
+6. 내보내기 변환 단계에서 메모의 `originalUrl`과 로컬 디렉터리 경로를 제거한다.
 
 ## 저장소 정리 흐름
 

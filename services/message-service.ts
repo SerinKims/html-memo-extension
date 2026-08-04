@@ -7,6 +7,13 @@ import {
   type MessageResponse,
   type OverlayState,
 } from '../types/messages';
+import type {
+  Annotation,
+  AnnotationChanges,
+  CreateAnnotationInput,
+  PointAnnotation,
+} from '../types/annotation';
+import type { StorageSettings } from '../types/storage';
 
 export class MessageServiceError extends Error {
   public constructor(message: string) {
@@ -66,4 +73,54 @@ export function getPageAnnotationCount(url: string): Promise<number> {
     payload: { url },
   });
   return unwrapResponse<number>(response, '현재 페이지의 메모 수를 불러오지 못했습니다.');
+}
+
+export function getPagePointAnnotations(url: string): Promise<PointAnnotation[]> {
+  const response = browser.runtime.sendMessage({
+    type: BACKGROUND_MESSAGE_TYPES.getPagePointAnnotations,
+    payload: { url },
+  });
+  return unwrapResponse<PointAnnotation[]>(
+    response,
+    '현재 페이지의 위치 메모를 불러오지 못했습니다.',
+  );
+}
+
+export function createAnnotation(input: CreateAnnotationInput): Promise<Annotation> {
+  const response = browser.runtime.sendMessage({
+    type: BACKGROUND_MESSAGE_TYPES.createAnnotation,
+    payload: input,
+  });
+  return unwrapResponse<Annotation>(response, '메모를 저장하지 못했습니다.');
+}
+
+export function updateAnnotation(id: string, changes: AnnotationChanges): Promise<Annotation> {
+  const response = browser.runtime.sendMessage({
+    type: BACKGROUND_MESSAGE_TYPES.updateAnnotation,
+    payload: { id, changes },
+  });
+  return unwrapResponse<Annotation>(response, '메모를 수정하지 못했습니다.');
+}
+
+export function deleteAnnotation(id: string): Promise<boolean> {
+  const response = browser.runtime.sendMessage({
+    type: BACKGROUND_MESSAGE_TYPES.deleteAnnotation,
+    payload: { id },
+  });
+  return unwrapResponse<boolean>(response, '메모를 삭제하지 못했습니다.');
+}
+
+export function getAnnotationSettings(): Promise<StorageSettings> {
+  const response = browser.runtime.sendMessage({ type: BACKGROUND_MESSAGE_TYPES.getSettings });
+  return unwrapResponse<StorageSettings>(response, '메모 설정을 불러오지 못했습니다.');
+}
+
+export function updateAnnotationSettings(
+  changes: Partial<StorageSettings>,
+): Promise<StorageSettings> {
+  const response = browser.runtime.sendMessage({
+    type: BACKGROUND_MESSAGE_TYPES.updateSettings,
+    payload: changes,
+  });
+  return unwrapResponse<StorageSettings>(response, '메모 설정을 저장하지 못했습니다.');
 }

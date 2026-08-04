@@ -18,7 +18,7 @@ memoHtml.exports.<exportId>
 memoHtml.temp.<jobId>
 ```
 
-`pageId`는 URL 정규화 결과와 origin, pathname, query 정책을 기반으로 생성한다. 기본 정책은 같은 전체 URL을 같은 페이지로 간주하는 것이다.
+`pageId`는 URL 정규화 결과와 origin, pathname, query 정책을 기반으로 생성한다. HTTP/HTTPS는 추적 query와 fragment를 제거하고, `file:`은 모든 query와 fragment를 제거한 절대 파일 URL을 사용한다. 로컬 파일이 이동하거나 이름이 바뀌면 새 `pageId`가 생성된다.
 
 ## PageRecord
 
@@ -144,15 +144,19 @@ interface CaptureRecord {
 ## ExportDocument
 
 ```ts
-interface ExportDocument {
-  schemaVersion: 1;
+interface ExportDocumentV2 {
+  schemaVersion: 2;
+  documentId: string;
+  revision: number;
   exportedAt: string;
   generator: {
     name: "web-memo-html-extension";
     version: string;
   };
+  source:
+    | { kind: "web"; displayName: string; url: string }
+    | { kind: "local-file"; displayName: string; fileName: string };
   page: {
-    url: string;
     title: string;
     capturedAt: string;
     documentWidth: number;
@@ -164,10 +168,29 @@ interface ExportDocument {
     width: number;
     height: number;
   };
-  notes: MemoRecord[];
+  notes: ExportNote[];
   redaction: RedactionSummary;
 }
+
+type ExportNote =
+  | (ExportNoteBase & { type: "point"; position: PointPosition })
+  | (ExportNoteBase & { type: "area"; position: AreaPosition })
+  | (ExportNoteBase & { type: "text"; anchor: TextAnchor })
+  | (ExportNoteBase & { type: "comment" });
+
+interface ExportNoteBase {
+  id: string;
+  content: string;
+  author: string;
+  color: AnnotationColor;
+  status: "open" | "resolved";
+  origin: "capture" | "review";
+  createdAt: string;
+  updatedAt: string;
+}
 ```
+
+`documentId`는 같은 검토 문서에서 파생된 revision을 식별하고 `revision`은 수정본을 저장할 때마다 증가한다. 로컬 파일 source에는 전체 경로를 저장하지 않는다. v1 문서는 읽을 때 v2 메모리 모델로 변환하고 다음 수정본부터 v2로 저장한다.
 
 ## RedactionSummary
 

@@ -23,13 +23,18 @@ export function normalizeUrl(value: string): string {
     throw new TypeError('올바른 웹페이지 URL을 입력해 주세요.');
   }
 
-  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-    throw new TypeError('http 또는 https 웹페이지 URL만 사용할 수 있습니다.');
+  if (url.protocol !== 'http:' && url.protocol !== 'https:' && url.protocol !== 'file:') {
+    throw new TypeError('http, https 또는 file 웹페이지 URL만 사용할 수 있습니다.');
   }
 
   url.username = '';
   url.password = '';
   url.hash = '';
+
+  if (url.protocol === 'file:') {
+    url.search = '';
+    return url.toString();
+  }
 
   const retainedParameters = [...url.searchParams.entries()]
     .filter(([name]) => !isTrackingParameter(name))

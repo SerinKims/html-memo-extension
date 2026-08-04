@@ -9,6 +9,7 @@ import {
   type RepositoryResult,
   type StorageError,
   type StorageLoadResult,
+  type StorageSettings,
   type StorageUsage,
 } from '../types/storage';
 import { createId, type IdFactory } from '../utils/id';
@@ -103,6 +104,10 @@ export class AnnotationRepository {
 
   public async create(input: CreateAnnotationInput): Promise<RepositoryResult<Annotation>> {
     return this.mutate(async (loaded) => {
+      if (input.content.trim().length === 0) {
+        return failure(invalidInput('메모 내용을 입력해 주세요.'));
+      }
+
       let normalizedUrl: string;
       try {
         normalizedUrl = normalizeUrl(input.originalUrl);
@@ -187,6 +192,10 @@ export class AnnotationRepository {
     changes: AnnotationChanges,
   ): Promise<RepositoryResult<Annotation>> {
     return this.mutate(async (loaded) => {
+      if (changes.content !== undefined && changes.content.trim().length === 0) {
+        return failure(invalidInput('메모 내용을 입력해 주세요.'));
+      }
+
       const index = loaded.data.annotations.findIndex((annotation) => annotation.id === id);
       const current = loaded.data.annotations[index];
       if (current === undefined) {
@@ -216,6 +225,23 @@ export class AnnotationRepository {
 
   public setStatus(id: string, status: AnnotationStatus): Promise<RepositoryResult<Annotation>> {
     return this.update(id, { status });
+  }
+
+  public async getSettings(): Promise<RepositoryResult<StorageSettings>> {
+    return this.read(async (loaded) => success(clone(loaded.data.settings)));
+  }
+
+  public async updateSettings(
+    changes: Partial<StorageSettings>,
+  ): Promise<RepositoryResult<StorageSettings>> {
+    return this.mutate(async (loaded) => {
+      const settings = { ...loaded.data.settings, ...changes };
+      const now = this.clock().toISOString();
+      loaded.data.settings = settings;
+      loaded.data.updatedAt = now;
+      await this.save(loaded);
+      return success(clone(settings));
+    });
   }
 
   public async delete(id: string): Promise<RepositoryResult<boolean>> {

@@ -1,7 +1,10 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 
-import { loadContentScriptForActiveTab } from '../../services/contentScript';
+import {
+  loadContentScriptForActiveTab,
+  openExtensionDetailsPage,
+} from '../../services/contentScript';
 import { getExtensionMetadata } from '../../services/extensionMetadata';
 import App from './App';
 import './style.css';
@@ -20,6 +23,7 @@ createRoot(rootElement).render(
       name={metadata.name}
       version={metadata.version}
       onStartMemo={loadContentScriptForActiveTab}
+      onOpenFileAccessSettings={openExtensionDetailsPage}
     />
   </StrictMode>,
 );
