@@ -6,7 +6,25 @@
 
 ## 현재 상태
 
-이 저장소는 요구사항과 설계 문서를 먼저 작성한 상태입니다. 아직 애플리케이션 코드는 구현하지 않습니다.
+Prompt 01의 WXT 기반 초기 구성이 완료되었습니다. Popup, 런타임 Content Script, Background Service Worker 진입점과 TypeScript, Tailwind CSS, 린트, 포맷, 테스트 환경을 포함합니다. 메모 작성과 내보내기 기능은 이후 단계에서 구현합니다.
+
+## 개발 시작
+
+```bash
+pnpm install
+pnpm dev
+```
+
+Chrome에서 `chrome://extensions`를 열고 개발자 모드를 활성화한 뒤 `.output/chrome-mv3-dev` 디렉터리를 압축해제된 확장 프로그램으로 로드합니다.
+
+```bash
+pnpm typecheck
+pnpm lint
+pnpm test
+pnpm build
+```
+
+위 명령으로 타입 검사, 린트, 기본 테스트, Chrome MV3 프로덕션 빌드를 각각 실행할 수 있습니다.
 
 ## 핵심 기능
 
